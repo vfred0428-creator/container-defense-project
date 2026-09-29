@@ -1,0 +1,5 @@
+{
+  "name": "ContainerDefense.Domain",
+  "rootNamespace": "ContainerDefense.Domain",
+  "noEngineReferences": true
+}

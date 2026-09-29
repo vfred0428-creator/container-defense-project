@@ -1,0 +1,6 @@
+{
+  "name": "ContainerDefense.Editor",
+  "rootNamespace": "ContainerDefense.Editor",
+  "references": ["ContainerDefense.Domain", "ContainerDefense.Runtime", "ContainerDefense.Tests"],
+  "includePlatforms": ["Editor"]
+}

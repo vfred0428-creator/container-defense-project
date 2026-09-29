@@ -1,0 +1,6 @@
+{
+  "name": "ContainerDefense.Tests",
+  "references": ["ContainerDefense.Domain", "ContainerDefense.Runtime"],
+  "includePlatforms": ["Editor"],
+  "noEngineReferences": true
+}

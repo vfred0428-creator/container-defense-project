@@ -1,0 +1,5 @@
+{
+  "name": "ContainerDefense.Runtime",
+  "rootNamespace": "ContainerDefense",
+  "references": ["ContainerDefense.Domain"]
+}

@@ -1,0 +1,151 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1443634396716f468372163367d289d, type: 3}
+  m_Name: Collections
+  m_EditorClassIdentifier: ContainerDefense.Runtime::ContainerDefense.CollectionConfig
+  Skins:
+  - SkinId: milo_default
+    Name: Default
+    CharacterId: 0
+    Rarity: 0
+    CharismaValue: 0
+    Default: 1
+    CoatHex: 
+    AccentHex: 
+  - SkinId: lumi_default
+    Name: Default
+    CharacterId: 1
+    Rarity: 0
+    CharismaValue: 0
+    Default: 1
+    CoatHex: 
+    AccentHex: 
+  - SkinId: kiko_default
+    Name: Default
+    CharacterId: 2
+    Rarity: 0
+    CharismaValue: 0
+    Default: 1
+    CoatHex: 
+    AccentHex: 
+  - SkinId: nori_default
+    Name: Default
+    CharacterId: 3
+    Rarity: 0
+    CharismaValue: 0
+    Default: 1
+    CoatHex: 
+    AccentHex: 
+  - SkinId: pip_default
+    Name: Default
+    CharacterId: 4
+    Rarity: 0
+    CharismaValue: 0
+    Default: 1
+    CoatHex: 
+    AccentHex: 
+  - SkinId: mochi_default
+    Name: Default
+    CharacterId: 5
+    Rarity: 0
+    CharismaValue: 0
+    Default: 1
+    CoatHex: 
+    AccentHex: 
+  - SkinId: yume_default
+    Name: Default
+    CharacterId: 6
+    Rarity: 0
+    CharismaValue: 0
+    Default: 1
+    CoatHex: 
+    AccentHex: 
+  - SkinId: milo_night
+    Name: Night Shift
+    CharacterId: 0
+    Rarity: 1
+    CharismaValue: 75
+    Default: 0
+    CoatHex: 334878
+    AccentHex: 85DADD
+  - SkinId: lumi_cloudy
+    Name: Cloudy
+    CharacterId: 1
+    Rarity: 2
+    CharismaValue: 200
+    Default: 0
+    CoatHex: D8B5EE
+    AccentHex: FFFFFF
+  - SkinId: kiko_red
+    Name: Red Gear
+    CharacterId: 2
+    Rarity: 1
+    CharismaValue: 75
+    Default: 0
+    CoatHex: E05464
+    AccentHex: FFE09C
+  Stickers:
+  - StickerId: bunny
+    Name: Bunny
+    Icon: bunny
+    Rarity: 1
+    CharismaValue: 20
+    GiftValue: 1
+    Animated: 0
+    Limited: 0
+  - StickerId: star
+    Name: Lucky Star
+    Icon: star
+    Rarity: 0
+    CharismaValue: 10
+    GiftValue: 1
+    Animated: 0
+    Limited: 0
+  - StickerId: cat
+    Name: Cozy Cat
+    Icon: cat
+    Rarity: 0
+    CharismaValue: 10
+    GiftValue: 1
+    Animated: 0
+    Limited: 0
+  - StickerId: good
+    Name: Good Job!
+    Icon: good
+    Rarity: 2
+    CharismaValue: 50
+    GiftValue: 10
+    Animated: 0
+    Limited: 0
+  - StickerId: heart
+    Name: Heart
+    Icon: heart
+    Rarity: 0
+    CharismaValue: 10
+    GiftValue: 1
+    Animated: 0
+    Limited: 0
+  StarterSkins:
+  - milo_night
+  - lumi_cloudy
+  - kiko_red
+  StarterStickers:
+  - StickerId: bunny
+    QuantityOwned: 52
+  - StickerId: star
+    QuantityOwned: 24
+  - StickerId: cat
+    QuantityOwned: 17
+  - StickerId: good
+    QuantityOwned: 7
+  - StickerId: heart
+    QuantityOwned: 38

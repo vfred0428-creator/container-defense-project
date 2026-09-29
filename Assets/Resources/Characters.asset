@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee01fa151cc39364581542db67c4e496, type: 3}
+  m_Name: Characters
+  m_EditorClassIdentifier: ContainerDefense.Runtime::ContainerDefense.CharacterConfig
+  Characters:
+  - Id: 0
+    Name: Milo
+    UnlockLevel: 1
+    Passive: 0
+    Bonus: 0.08
+    Description: +8% personal gold generation.
+  - Id: 1
+    Name: Lumi
+    UnlockLevel: 3
+    Passive: 1
+    Bonus: 0.15
+    Description: +15% maximum HP for your door.
+  - Id: 2
+    Name: Kiko
+    UnlockLevel: 5
+    Passive: 2
+    Bonus: 0.1
+    Description: +10% damage from your weapons.
+  - Id: 3
+    Name: Nori
+    UnlockLevel: 7
+    Passive: 3
+    Bonus: 0.12
+    Description: Your bed generates gold 12% faster.
+  - Id: 4
+    Name: Pip
+    UnlockLevel: 9
+    Passive: 4
+    Bonus: 0.12
+    Description: +12% personal movement speed.
+  - Id: 5
+    Name: Mochi
+    UnlockLevel: 12
+    Passive: 5
+    Bonus: 0.08
+    Description: 8% chance to pay half price for an upgrade.
+  - Id: 6
+    Name: Yume
+    UnlockLevel: 15
+    Passive: 6
+    Bonus: 0.1
+    Description: Your upgrades build 10% faster.
+  Progression:
+    XpToNextLevel: 78000000a0000000c8000000f000000018010000400100006801000090010000b8010000e001000008020000300200005802000080020000a8020000d0020000f802000020030000480300007003000098030000c0030000e803000010040000380400006004000088040000b0040000d804000000050000280500005005000078050000a0050000c8050000f005000018060000400600006806000090060000b8060000e006000008070000300700005807000080070000a8070000d0070000f807000020080000480800007008000098080000c0080000e808000010090000380900006009000088090000b0090000d8090000000a0000280a0000500a0000780a0000a00a0000c80a0000f00a0000180b0000400b0000680b0000900b0000b80b0000e00b0000080c0000300c0000580c0000800c0000a80c0000d00c0000f80c0000200d0000480d0000700d0000980d0000c00d0000e80d0000100e0000380e0000600e0000880e0000b00e0000d80e0000000f0000280f0000500f0000780f0000a00f0000c80f0000
+    CompletionXp: 30
+    SurvivalXpPerSecond: 1
+    MaximumSurvivalXp: 180
+    DamagePerXp: 30
+    MaximumDamageXp: 100
+    VictoryXp: 75
