@@ -42,7 +42,7 @@ namespace ContainerDefense
             button.border = new RectOffset(10,10,10,10); button.wordWrap = true;
         }
         private static GUIStyle Style(Font font, int size, FontStyle weight)
-        { return new GUIStyle { font = font, fontSize = size, fontStyle = weight, normal = { textColor = Color.white }, wordWrap = true }; }
+        { return new GUIStyle { font = weight == FontStyle.Bold ? Resources.Load<Font>("Fonts/NunitoBold") ?? font : font, fontSize = size, fontStyle = FontStyle.Normal, normal = { textColor = Color.white }, wordWrap = true }; }
 
         private void OnGUI()
         {
@@ -51,8 +51,9 @@ namespace ContainerDefense
             float scale = Mathf.Min(Screen.width / 1440f, Screen.height / 900f);
             width = Screen.width / scale; height = Screen.height / scale;
             GUI.matrix = Matrix4x4.TRS(Vector3.zero,Quaternion.identity,Vector3.one * scale);
+            session.Arena.DrawLabels();
             if (!session.Started) { if (collectionOpen) CollectionScreen(); else TitleScreen(); return; }
-            TopBar(); BottomBar();
+            HouseInterior(); TopBar(); BottomBar(); RoomButton();
             if (session.Paused) PauseScreen();
             else if (session.Match.Finished) Results();
         }
@@ -75,7 +76,7 @@ namespace ContainerDefense
             Box(new Rect(center - 265,22,530,88),panel);
             bool prep = m.Phase == MatchPhase.Preparation;
             string target = m.Boss.TargetHouseId >= 0 ? "  /  TARGET " + (m.Boss.TargetHouseId + 1).ToString("00") : "";
-            Label(new Rect(center - 245,34,490,26),prep ? "CLAIM A HOME" : "STORM CLOUD" + target,heading,prep ? gold : Color.white);
+            Label(new Rect(center - 245,34,490,26),prep ? (p.HouseId < 0 ? "CLAIM A HOME" : "PREPARE YOUR HOUSE") : "WAVE 1" + target,heading,prep ? gold : Color.white);
             Bar(new Rect(center - 245,73,490,13),m.Boss.Health / m.Boss.MaxHealth,red);
             Box(new Rect(width - 323,22,222,88),panel);
             Label(new Rect(width - 305,32,185,32),((int)p.Gold).ToString("N0") + "  GOLD",heading,gold);
@@ -99,7 +100,7 @@ namespace ContainerDefense
             if (p.HouseId < 0)
             {
                 Label(new Rect(48,y + 22,700,32),"YOUR HOME IS WAITING",heading,gold);
-                Label(new Rect(48,y + 67,780,66),"Move to a glowing circle in front of a free door.\nPress E to claim it, then E again to sleep.",body,Color.white);
+                Label(new Rect(48,y + 67,780,66),"Move to the steps in front of a free door.\nPress E to claim it, then E again to sleep.",body,Color.white);
                 int nearby = session.NearbyHouse();
                 string action = nearby < 0 ? "MOVE TO A DOOR" : m.Houses[nearby].OwnerId < 0 ? "[E] CLAIM " + (nearby + 1).ToString("00") : "ALREADY CLAIMED";
                 if (Button(new Rect(width - 370,y + 45,312,60),action,gold,nearby >= 0 && m.Houses[nearby].OwnerId < 0 && !spectator)) session.Interact();

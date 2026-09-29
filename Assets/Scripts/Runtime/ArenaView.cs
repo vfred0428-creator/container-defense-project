@@ -1,160 +1,132 @@
+using System.Collections.Generic;
 using ContainerDefense.Domain;
 using UnityEngine;
 
 namespace ContainerDefense
 {
+    // Presentation only. Domain X/Z maps to a shallow 2D courtyard; no physics or meshes.
     public sealed class ArenaView : MonoBehaviour
     {
         public Camera Camera { get; private set; }
         public CharacterPortraits Portraits { get; private set; }
-        private Transform worldRoot;
-        private ToyFactory art;
         private MatchSimulation match;
-        private readonly Transform[] doors = new Transform[6], barrels = new Transform[6], healthBars = new Transform[6];
-        private readonly Transform[] avatars = new Transform[6], markers = new Transform[6];
-        private readonly TextMesh[] labels = new TextMesh[6], sleepLabels = new TextMesh[6];
+        private GameSession session;
+        private readonly CharacterVisualController[] actors = new CharacterVisualController[6];
+        private readonly SpriteRenderer[] houses = new SpriteRenderer[6];
+        private readonly Vector3[] previous = new Vector3[6];
+        private readonly bool[] facingRight = new bool[6];
+        private readonly float[] runningUntil = new float[6];
+        private readonly float[] shotUntil = new float[6], hitUntil = new float[6], cheerUntil = new float[6];
         private readonly LineRenderer[] shots = new LineRenderer[6];
-        private readonly float[] shotUntil = new float[6], hitUntil = new float[6];
-        private readonly bool[] wasSleeping = new bool[6];
-        private Transform boss, targetMarker;
-        private LineRenderer attack;
-        private float attackUntil;
-
+        private readonly List<Sprite> ownedSprites = new List<Sprite>();
+        private SpriteRenderer background, boss;
+        private Material lineMaterial;
+        private GUIStyle label;
         public void Build(CollectionCatalog collections)
         {
-            art = new ToyFactory();
-            var root = art.Root("Container yard", transform, Vector3.zero);
-            worldRoot = root;
-            var yard = new YardBuilder(art, root); yard.BuildGround();
+            session = GetComponent<GameSession>();
+            Camera = new GameObject("2D arena camera").AddComponent<Camera>();
+            Camera.transform.SetParent(transform); Camera.transform.position = new Vector3(0,0,-20);
+            Camera.tag = "MainCamera"; Camera.orthographic = true; Camera.orthographicSize = 9.5f;
+            Camera.clearFlags = CameraClearFlags.SolidColor; Camera.backgroundColor = new Color(.12f,.13f,.25f);
+            Camera.allowHDR = false; Camera.gameObject.AddComponent<AudioListener>(); RenderSettings.fog = false;
+            Portraits = new CharacterPortraits(); Portraits.Build(collections);
+            background = Image("Sunset neighborhood","yard",new Rect(0,0,1,1),new Vector2(.5f,.5f),-100);
+            boss = Image("Storm cloud","boss",new Rect(0,0,1,1),new Vector2(.5f,.5f),-20);
+            boss.transform.position = new Vector3(0,5,0); boss.transform.localScale = Vector3.one * 8;
+            lineMaterial = new Material(Shader.Find("Sprites/Default"));
             for (int i = 0; i < 6; i++)
             {
-                float x = (i - 2.5f) * 4.8f;
-                yard.BuildHouse(i, x, out doors[i], out barrels[i], out healthBars[i], out labels[i]);
-                avatars[i] = ResidentFactory.Create(art,CharacterId.Milo,root);
-                sleepLabels[i] = art.Text("z z z", root, Vector3.zero, 0.09f, YardBuilder.Warm);
-                sleepLabels[i].transform.rotation = Quaternion.Euler(36, 0, 0);
-                markers[i] = art.Shape("Claim marker", PrimitiveType.Cylinder, root, new Vector3(x,0.04f,2.1f), new Vector3(1.3f,0.03f,1.3f), YardBuilder.Colors[i], true);
-                shots[i] = art.Line("Weapon tracer", root, YardBuilder.Warm, 0.065f); shots[i].enabled = false;
+                houses[i] = Image("House " + (i + 1).ToString("00"),"houses",new Rect(i % 3 / 3f,(1 - i / 3) / 2f,1f / 3,.5f),new Vector2(.5f,.1f),0);
+                houses[i].transform.position = new Vector3((i - 2.5f) * 4.8f,-.1f,0);
+                houses[i].transform.localScale = Vector3.one * 4.9f;
+                var line = new GameObject("Pooled weapon tracer " + i).AddComponent<LineRenderer>(); line.transform.SetParent(transform);
+                line.sharedMaterial = lineMaterial; line.positionCount = 2; line.startWidth = .065f; line.endWidth = .025f;
+                line.startColor = new Color(1,.83f,.35f); line.endColor = new Color(1,.5f,.18f,.1f);
+                line.sortingOrder = 40; line.enabled = false; shots[i] = line;
             }
-            boss = CreateBoss(root);
-            targetMarker = art.Shape("Boss target", PrimitiveType.Cylinder, root, Vector3.zero, new Vector3(2.5f,0.025f,2.5f), new Color(0.9f,0.18f,0.28f));
-            attack = art.Line("Boss impact", root, new Color(1,0.18f,0.25f), 0.18f); attack.enabled = false;
-            SetupCamera();
-            Portraits = new CharacterPortraits(); Portraits.Build(art,transform,collections);
         }
-
-        private void SetupCamera()
+        private SpriteRenderer Image(string name,string asset,Rect uv,Vector2 pivot,int order)
         {
-            Camera = new GameObject("Arena camera").AddComponent<Camera>(); Camera.transform.SetParent(transform);
-            Camera.tag = "MainCamera"; Camera.transform.position = new Vector3(0,21,-25);
-            Camera.transform.LookAt(new Vector3(0,0,1)); Camera.orthographic = true;
-            Camera.orthographicSize = 11.2f; Camera.nearClipPlane = 0.1f; Camera.farClipPlane = 100;
-            Camera.clearFlags = CameraClearFlags.SolidColor; Camera.backgroundColor = new Color(0.31f,0.28f,0.43f);
-            Camera.allowHDR = true; Camera.gameObject.AddComponent<AudioListener>();
-            Camera.cullingMask &= ~(1 << 8);
-            RenderSettings.ambientLight = new Color(0.6f,0.56f,0.7f);
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 37; RenderSettings.fogEndDistance = 72;
-            RenderSettings.fogColor = Camera.backgroundColor;
-            var sun = new GameObject("Warm sunset").AddComponent<Light>(); sun.transform.SetParent(transform);
-            sun.type = LightType.Directional; sun.color = new Color(1,0.72f,0.49f); sun.intensity = 1.35f;
-            sun.transform.rotation = Quaternion.Euler(36,-38,0); sun.shadows = LightShadows.Soft;
-            QualitySettings.shadowDistance = 65;
-            var fill = new GameObject("Cool fill").AddComponent<Light>(); fill.transform.SetParent(transform);
-            fill.type = LightType.Directional; fill.color = new Color(0.5f,0.62f,1); fill.intensity = 0.55f;
-            fill.transform.rotation = Quaternion.Euler(50,145,0);
+            var texture = Resources.Load<Texture2D>("Art2D/" + asset);
+            if (texture == null) throw new System.InvalidOperationException("Missing 2D environment: " + asset);
+            var sprite = Sprite.Create(texture,new Rect(uv.x * texture.width,uv.y * texture.height,uv.width * texture.width,uv.height * texture.height),pivot,uv.width * texture.width);
+            ownedSprites.Add(sprite);
+            var result = new GameObject(name).AddComponent<SpriteRenderer>(); result.transform.SetParent(transform);
+            result.sprite = sprite; result.sortingOrder = order; return result;
         }
-
-        private Transform CreateBoss(Transform parent)
-        {
-            var cloud = art.Root("Storm cloud boss", parent, Vector3.zero);
-            Color smoke = new Color(0.19f,0.14f,0.28f);
-            art.Ball("Cloud core", cloud, Vector3.zero, new Vector3(3.5f,2.8f,2.3f), smoke);
-            for (int i = 0; i < 10; i++)
-            {
-                float angle = i * Mathf.PI * 2 / 10;
-                art.Ball("Cloud puff", cloud, new Vector3(Mathf.Cos(angle) * 1.5f,Mathf.Sin(angle) * 1.15f,0.15f), Vector3.one * (1.1f + i % 3 * 0.18f), smoke * (0.85f + i % 3 * 0.12f));
-            }
-            for (int side = -1; side <= 1; side += 2)
-            {
-                var eye = art.Ball("Glowing eye", cloud, new Vector3(side * 0.65f,0.2f,-1.12f), new Vector3(0.53f,0.38f,0.14f), new Color(1,0.18f,0.17f), true);
-                eye.localRotation = Quaternion.Euler(0,0,-side * 22);
-            }
-            for (int i = 0; i < 5; i++)
-            {
-                var tooth = art.Box("Jagged grin", cloud, new Vector3((i - 2) * 0.24f,-0.52f + i % 2 * 0.1f,-1.15f), new Vector3(0.23f,0.22f,0.1f), new Color(1,0.2f,0.18f), true);
-                tooth.localRotation = Quaternion.Euler(0,0,45);
-            }
-            return cloud;
-        }
-
-        public void Bind(MatchSimulation simulation, SkinDefinition humanSkin = null)
+        public void Bind(MatchSimulation simulation,SkinDefinition humanSkin = null)
         {
             match = simulation;
             for (int i = 0; i < 6; i++)
             {
-                shotUntil[i] = hitUntil[i] = 0; doors[i].localRotation = Quaternion.identity;
-                avatars[i].gameObject.SetActive(false); Destroy(avatars[i].gameObject);
-                avatars[i] = ResidentFactory.Create(art,match.Players[i].Character.Id,worldRoot,i == 0 ? humanSkin : null);
-                wasSleeping[i] = false;
+                if (actors[i] != null) { actors[i].gameObject.SetActive(false); Destroy(actors[i].gameObject); }
+                string skin = i == 0 && humanSkin != null ? humanSkin.SkinId : CharacterCatalog.Key(match.Players[i].Character.Id) + "_default";
+                actors[i] = new GameObject(match.Players[i].Character.Id + " / " + skin).AddComponent<CharacterVisualController>();
+                actors[i].transform.SetParent(transform); actors[i].Initialize(Portraits.Set(skin));
+                previous[i] = Project(match.Players[i].Position); shotUntil[i] = hitUntil[i] = cheerUntil[i] = runningUntil[i] = 0;
             }
-            attackUntil = 0;
         }
         public void Handle(MatchEvent e)
         {
-            if (e.Kind == MatchEventKind.Shot) shotUntil[e.HouseId] = Time.time + 0.13f;
-            if (e.Kind == MatchEventKind.DoorHit) { hitUntil[e.HouseId] = Time.time + 0.22f; attackUntil = Time.time + 0.16f; }
+            if (e.Kind == MatchEventKind.Shot && e.HouseId >= 0) shotUntil[e.HouseId] = Time.time + .18f;
+            if (e.Kind == MatchEventKind.DoorHit && e.HouseId >= 0) hitUntil[e.HouseId] = Time.time + .25f;
+            if (e.Kind == MatchEventKind.Upgraded && e.PlayerId >= 0) cheerUntil[e.PlayerId] = Time.time + .5f;
         }
-
+        private static Vector3 Project(Point2 point) { return new Vector3(point.X,point.Z * .43f - 1,0); }
         private void LateUpdate()
         {
             if (match == null) return;
-            Camera.orthographicSize = Mathf.Max(11.2f, 18f / Mathf.Max(0.5f,Camera.aspect));
-            float t = Time.time;
+            Camera.orthographicSize = Mathf.Max(9.5f,15.5f / Camera.aspect);
+            float t = match.Elapsed;
+            background.transform.localScale = Vector3.one * Mathf.Max(Camera.orthographicSize * 2 * Camera.aspect,Camera.orthographicSize * 3);
+            bool playing = session.Started;
             for (int i = 0; i < 6; i++)
             {
-                HouseState h = match.Houses[i]; PlayerState p = match.Players[i];
-                float ratio = Mathf.Clamp01(h.Health / h.MaxHealth);
-                healthBars[i].localScale = new Vector3(3.55f * ratio,0.12f,0.08f);
-                healthBars[i].localPosition = new Vector3(-1.775f * (1 - ratio),3.92f,-2.18f);
-                healthBars[i].gameObject.SetActive(h.OwnerId >= 0 && !h.Destroyed);
-                doors[i].localRotation = Quaternion.Euler(0,0,h.Destroyed ? 76 : t < hitUntil[i] ? Mathf.Sin(t * 90) * 5 : 0);
-                labels[i].text = h.Destroyed ? "ELIMINATED" : h.OwnerId < 0 ? "AVAILABLE" : h.OwnerId == 0 ? "YOUR HOUSE" : match.Players[h.OwnerId].Name;
-                labels[i].color = h.OwnerId == 0 ? YardBuilder.Warm : Color.white;
-                markers[i].gameObject.SetActive(h.OwnerId < 0 && match.Phase == MatchPhase.Preparation);
-                avatars[i].gameObject.SetActive(!p.Eliminated);
-                Vector3 next = new Vector3(p.Position.X,p.Sleeping ? 1.4f : 0,p.Position.Z);
-                Vector3 motion = next - avatars[i].position;
-                motion.y = 0;
-                bool moving = motion.sqrMagnitude > .0001f;
-                if (!p.Sleeping && moving) next.y += Mathf.Abs(Mathf.Sin(t * 11 + i)) * .07f;
-                avatars[i].position = next;
-                if (p.Sleeping) avatars[i].rotation = Quaternion.Euler(90,0,0);
-                else if (moving) avatars[i].rotation = Quaternion.Slerp(avatars[i].rotation,Quaternion.LookRotation(-new Vector3(motion.x,0,motion.z)),Time.deltaTime * 14);
-                else if (wasSleeping[i]) avatars[i].rotation = Quaternion.identity;
-                wasSleeping[i] = p.Sleeping;
-                sleepLabels[i].gameObject.SetActive(p.Sleeping);
-                if (p.HouseId >= 0)
-                    sleepLabels[i].transform.position = new Vector3(match.Houses[p.HouseId].Entry.X,5.3f + Mathf.Sin(t * 2 + i) * 0.1f,3.4f);
-                shots[i].enabled = t < shotUntil[i] && !h.Destroyed;
-                if (shots[i].enabled) { shots[i].SetPosition(0,barrels[i].position); shots[i].SetPosition(1,boss.position); }
+                var h = match.Houses[i]; var p = match.Players[i];
+                bool hit = Time.time < hitUntil[i];
+                houses[i].color = h.Destroyed ? new Color(.42f,.4f,.5f) : hit ? new Color(1,.55f,.55f) : Color.white;
+                houses[i].transform.localRotation = Quaternion.Euler(0,0,hit ? Mathf.Sin(t * 70) * 1.5f : 0);
+                Vector3 point = Project(p.Position);
+                if ((point - previous[i]).sqrMagnitude > .00001f) runningUntil[i] = match.Elapsed + .12f;
+                bool moving = match.Elapsed < runningUntil[i];
+                if (moving && Mathf.Abs(point.x - previous[i].x) > .001f) facingRight[i] = point.x > previous[i].x;
+                previous[i] = point;
+                CharacterPose pose = moving ? CharacterPose.Run : CharacterPose.Idle;
+                if (p.Sleeping) { pose = CharacterPose.Sleep; point = Project(match.Houses[p.HouseId].Entry) + new Vector3(0,.7f,0); }
+                if (p.HouseId >= 0 && Time.time < shotUntil[p.HouseId] && !p.Sleeping) pose = CharacterPose.Attack;
+                if (Time.time < cheerUntil[i]) pose = CharacterPose.Upgrade;
+                if (p.HouseId >= 0 && Time.time < hitUntil[p.HouseId]) pose = CharacterPose.Hurt;
+                if (match.Finished && !p.Eliminated) pose = CharacterPose.Victory;
+                if (p.Eliminated) pose = CharacterPose.Eliminated;
+                actors[i].gameObject.SetActive(playing);
+                actors[i].Present(point,pose,t + i * .3f,facingRight[i],20 - Mathf.RoundToInt(point.y));
+                shots[i].enabled = playing && Time.time < shotUntil[i] && !h.Destroyed;
+                if (shots[i].enabled) { shots[i].SetPosition(0,houses[i].transform.position + Vector3.up * 2); shots[i].SetPosition(1,boss.transform.position); }
             }
-            bool waiting = match.Phase == MatchPhase.Preparation;
             boss.gameObject.SetActive(match.Boss.Phase != BossPhase.Dead);
-            boss.position = waiting ? new Vector3(0,4.2f,8) : new Vector3(match.Boss.Position.X,3.2f + Mathf.Sin(t * 2) * 0.2f,match.Boss.Position.Z);
-            boss.localScale = Vector3.one * (waiting ? 1.15f : 1);
-            bool targeting = match.Boss.TargetHouseId >= 0 && !match.Finished;
-            targetMarker.gameObject.SetActive(targeting);
-            if (targeting)
-            {
-                var target = match.Houses[match.Boss.TargetHouseId];
-                targetMarker.position = new Vector3(target.Entry.X,0.06f,target.Entry.Z);
-                targetMarker.localScale = new Vector3(2.1f + Mathf.Sin(t * 7) * 0.25f,0.025f,2.1f + Mathf.Sin(t * 7) * 0.25f);
-            }
-            attack.enabled = targeting && t < attackUntil;
-            if (attack.enabled) { attack.SetPosition(0,boss.position); attack.SetPosition(1,doors[match.Boss.TargetHouseId].position); }
+            float targetX = match.Boss.TargetHouseId >= 0 ? match.Houses[match.Boss.TargetHouseId].Entry.X * .48f : 0;
+            if (!session.Paused) boss.transform.position = Vector3.Lerp(boss.transform.position,new Vector3(targetX,5 + Mathf.Sin(t * 1.5f) * .15f,0),Time.deltaTime * 2);
+            boss.transform.localScale = Vector3.one * (8 + Mathf.Sin(t * 2) * .12f);
         }
-        private void OnDestroy() { if (Portraits != null) Portraits.Dispose(); if (art != null) art.Dispose(); }
+        public void DrawLabels()
+        {
+            if (match == null) return;
+            var matrix = GUI.matrix; GUI.matrix = Matrix4x4.identity;
+            if (label == null) label = new GUIStyle { font = Resources.Load<Font>("Fonts/Nunito"),fontStyle = FontStyle.Bold,alignment = TextAnchor.MiddleCenter,normal = { textColor = Color.white } };
+            label.fontSize = Mathf.RoundToInt(16 * Screen.height / 900f);
+            for (int i = 0; i < 6; i++)
+            {
+                var h = match.Houses[i]; var pos = Camera.WorldToScreenPoint(houses[i].transform.position + Vector3.up * 3.2f);
+                GUI.Label(new Rect(pos.x - 60,Screen.height - pos.y,120,30),(i + 1).ToString("00"),label);
+                pos = Camera.WorldToScreenPoint(houses[i].transform.position + Vector3.down * .25f);
+                string text = h.Destroyed ? "OUT" : h.OwnerId < 0 ? "CLAIM" : h.OwnerId == 0 ? "MY HOUSE" : match.Players[h.OwnerId].Name;
+                if (match.Boss.TargetHouseId == i && !match.Finished) text = "! " + text;
+                if (session.Started) GUI.Label(new Rect(pos.x - 65,Screen.height - pos.y,130,25),text,label);
+            }
+            GUI.matrix = matrix;
+        }
+        private void OnDestroy()
+        { if (Portraits != null) Portraits.Dispose(); foreach (var sprite in ownedSprites) Destroy(sprite); if (lineMaterial != null) Destroy(lineMaterial); }
     }
 }

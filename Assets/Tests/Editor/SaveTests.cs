@@ -41,14 +41,14 @@ public static class SaveTests
             collectionStore.Save(new AccountData { Version = 1, TotalXp = 1000, SelectedCharacter = "kiko", UnlockedCharacters = new[] { "milo","lumi","kiko" } });
             var migrated = new AccountProgression(collectionStore.Load(),new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());
             Assert(migrated.TotalXp == 1000 && migrated.Selected == CharacterId.Kiko && migrated.Inventory.SkinsOwned == 7); count++;
-            migrated.Inventory.ClaimStarter(); migrated.Inventory.TryEquip(CharacterId.Kiko,"kiko_red");
+            migrated.Inventory.ClaimStarter(); migrated.Inventory.TryEquip(CharacterId.Kiko,"kiko_default");
             migrated.Inventory.TryAddSticker("bunny",3000000000L); collectionStore.Save(migrated.Snapshot());
             var collectionReload = new AccountProgression(new LocalSaveService(collectionPath).Load(),new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());
-            Assert(collectionReload.Inventory.Quantity("bunny") == 3000000052L && collectionReload.Inventory.Equipped(CharacterId.Kiko) == "kiko_red" &&
-                collectionReload.Inventory.Charisma == 450 && !collectionReload.Inventory.ClaimStarter() && collectionReload.TotalXp == 1000); count++;
+            Assert(collectionReload.Inventory.Quantity("bunny") == 3000000052L && collectionReload.Inventory.Equipped(CharacterId.Kiko) == "kiko_default" &&
+                collectionReload.Inventory.Charisma == 100 && !collectionReload.Inventory.ClaimStarter() && collectionReload.TotalXp == 1000); count++;
             collectionStore.Save(collectionReload.Snapshot()); File.WriteAllText(collectionPath,"interrupted write");
             var collectionRecovery = new AccountProgression(new LocalSaveService(collectionPath).Load(),new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());
-            Assert(collectionRecovery.Inventory.Quantity("bunny") == 3000000052L && collectionRecovery.Inventory.Equipped(CharacterId.Kiko) == "kiko_red" && collectionRecovery.Inventory.Charisma == 450); count++;
+            Assert(collectionRecovery.Inventory.Quantity("bunny") == 3000000052L && collectionRecovery.Inventory.Equipped(CharacterId.Kiko) == "kiko_default" && collectionRecovery.Inventory.Charisma == 100); count++;
             Console.WriteLine("PASS " + count + " persistence scenarios: roundtrip, replacement, backup, corruption, future versions, write failure.");
             return count + " persistence scenarios passed.";
         }

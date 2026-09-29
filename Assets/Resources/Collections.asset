@@ -19,80 +19,56 @@ MonoBehaviour:
     Rarity: 0
     CharismaValue: 0
     Default: 1
-    CoatHex: 
-    AccentHex: 
+    CoatHex:
+    AccentHex:
   - SkinId: lumi_default
     Name: Default
     CharacterId: 1
     Rarity: 0
     CharismaValue: 0
     Default: 1
-    CoatHex: 
-    AccentHex: 
+    CoatHex:
+    AccentHex:
   - SkinId: kiko_default
     Name: Default
     CharacterId: 2
     Rarity: 0
     CharismaValue: 0
     Default: 1
-    CoatHex: 
-    AccentHex: 
+    CoatHex:
+    AccentHex:
   - SkinId: nori_default
     Name: Default
     CharacterId: 3
     Rarity: 0
     CharismaValue: 0
     Default: 1
-    CoatHex: 
-    AccentHex: 
+    CoatHex:
+    AccentHex:
   - SkinId: pip_default
     Name: Default
     CharacterId: 4
     Rarity: 0
     CharismaValue: 0
     Default: 1
-    CoatHex: 
-    AccentHex: 
+    CoatHex:
+    AccentHex:
   - SkinId: mochi_default
     Name: Default
     CharacterId: 5
     Rarity: 0
     CharismaValue: 0
     Default: 1
-    CoatHex: 
-    AccentHex: 
+    CoatHex:
+    AccentHex:
   - SkinId: yume_default
     Name: Default
     CharacterId: 6
     Rarity: 0
     CharismaValue: 0
     Default: 1
-    CoatHex: 
-    AccentHex: 
-  - SkinId: milo_night
-    Name: Night Shift
-    CharacterId: 0
-    Rarity: 1
-    CharismaValue: 75
-    Default: 0
-    CoatHex: 334878
-    AccentHex: 85DADD
-  - SkinId: lumi_cloudy
-    Name: Cloudy
-    CharacterId: 1
-    Rarity: 2
-    CharismaValue: 200
-    Default: 0
-    CoatHex: D8B5EE
-    AccentHex: FFFFFF
-  - SkinId: kiko_red
-    Name: Red Gear
-    CharacterId: 2
-    Rarity: 1
-    CharismaValue: 75
-    Default: 0
-    CoatHex: E05464
-    AccentHex: FFE09C
+    CoatHex:
+    AccentHex:
   Stickers:
   - StickerId: bunny
     Name: Bunny
@@ -134,10 +110,7 @@ MonoBehaviour:
     GiftValue: 1
     Animated: 0
     Limited: 0
-  StarterSkins:
-  - milo_night
-  - lumi_cloudy
-  - kiko_red
+  StarterSkins: []
   StarterStickers:
   - StickerId: bunny
     QuantityOwned: 52

@@ -64,6 +64,11 @@ namespace ContainerDefense
             yield return new WaitForSecondsRealtime(0.25f);
             if (match.Elapsed != pausedAt) { Fail("Pause failed."); yield break; }
             session.TogglePause();
+            session.GetComponent<MatchHud>().RoomOpen = true;
+            yield return new WaitForEndOfFrame();
+            ScreenCapture.CaptureScreenshot(Path.Combine(output,"02a-interior.png"));
+            yield return new WaitForSecondsRealtime(.5f);
+            session.GetComponent<MatchHud>().RoomOpen = false;
             ScreenCapture.CaptureScreenshot(Path.Combine(output,"02-house.png"));
             yield return new WaitForSecondsRealtime(0.5f);
             Time.timeScale = 5;

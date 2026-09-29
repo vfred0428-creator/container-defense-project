@@ -1,0 +1,1 @@
+Nunito variable source from the existing project, retained under OFL. Runtime Nunito.ttf and NunitoBold.ttf are fixed instances at wght=600 and wght=800, produced with fontTools.varLib.instancer.instantiateVariableFont. This avoids Unity rendering the variable font at its thin minimum weight.

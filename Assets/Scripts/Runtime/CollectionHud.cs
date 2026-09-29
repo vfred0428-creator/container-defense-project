@@ -8,12 +8,12 @@ namespace ContainerDefense
         private bool collectionOpen, stickerTab;
         private CharacterId collectionCharacter;
         private string previewSkin, previewSticker = "bunny";
-        private Vector2 skinScroll, stickerScroll;
+        private Vector2 stickerScroll;
         private StickerIcons stickerIcons;
         public void OpenCollection(CharacterId character)
         {
             collectionOpen = true; stickerTab = false; collectionCharacter = character;
-            previewSkin = session.Inventory.Equipped(character); skinScroll = Vector2.zero;
+            previewSkin = session.Inventory.Equipped(character);
         }
         public void ShowStickers() { collectionOpen = true; stickerTab = true; }
         public void CloseCollection() { collectionOpen = false; }
@@ -35,7 +35,7 @@ namespace ContainerDefense
             Label(new Rect(48,bottom + 15,width - 440,30),inventory.StarterClaimed ? "STARTER COLLECTION CLAIMED" : "A LITTLE SOMETHING TO GET STARTED",heading,gold);
             Label(new Rect(48,bottom + 51,width - 440,27),inventory.StarterClaimed ?
                 "Charisma: " + inventory.SkinCharisma + " from skins + " + inventory.StickerCharisma + " from sticker types. Duplicates add no Charisma." :
-                session.Collections.StarterSkins.Length + " skin variants and " + session.Collections.StarterStickers.Length + " sticker stacks. Free, once per account.",small,muted);
+                session.Collections.StarterStickers.Length + " sticker stacks. Free, once per account.",small,muted);
             if (Button(new Rect(width - 350,bottom + 20,296,50),inventory.StarterClaimed ? "COLLECTED" : "CLAIM STARTER PACK",gold,!inventory.StarterClaimed)) session.ClaimStarterCollection();
             Label(new Rect(32,height - 39,width - 230,30),session.SaveStatus,small,session.SaveDirty ? red : muted);
             if (session.SaveDirty && Button(new Rect(width - 190,height - 43,160,32),"RETRY SAVE",gold)) session.PersistAccount();
@@ -47,41 +47,26 @@ namespace ContainerDefense
             for (int i = 0; i < 7; i++)
             {
                 var d = session.Characters.Get((CharacterId)i);
-                if (Button(new Rect(38,230 + i * 61,198,49),d.Name + (session.Account.IsUnlocked(d.Id) ? "" : "  /  LV. " + d.UnlockLevel),
-                    collectionCharacter == d.Id ? gold : muted))
-                { collectionCharacter = d.Id; previewSkin = session.Inventory.Equipped(d.Id); skinScroll = Vector2.zero; }
+                if (Button(new Rect(38,230 + i * 61,198,49),d.Name + (session.Account.IsUnlocked(d.Id) ? "" : " / Lv. " + d.UnlockLevel),collectionCharacter == d.Id ? gold : muted))
+                { collectionCharacter = d.Id; previewSkin = session.Inventory.Equipped(d.Id); }
             }
-            var choices = System.Array.FindAll(session.Collections.Skins,d => d.CharacterId == collectionCharacter);
-            float available = width - 682, cardWidth = (available - 18) / 2;
-            Rect viewport = new Rect(268,214,available,areaHeight);
-            skinScroll = GUI.BeginScrollView(viewport,skinScroll,new Rect(0,0,available - 18,Mathf.Max(areaHeight - 1,((choices.Length + 1) / 2) * 367)));
-            for (int i = 0; i < choices.Length; i++)
-            {
-                var d = choices[i]; bool owned = session.Inventory.OwnsSkin(d.SkinId);
-                Rect card = new Rect((i % 2) * cardWidth,(i / 2) * 367,cardWidth - 12,352);
-                Box(card,previewSkin == d.SkinId ? new Color(.24f,.22f,.32f) : panel);
-                float size = Mathf.Min(card.width - 20,210);
-                GUI.DrawTexture(new Rect(card.x + (card.width - size) / 2,card.y + 10,size,size),session.Arena.Portraits.Get(d.SkinId),ScaleMode.ScaleToFit,true);
-                Label(new Rect(card.x + 16,card.y + 222,card.width - 32,33),d.Name,heading,Color.white);
-                Label(new Rect(card.x + 16,card.y + 259,card.width - 32,25),d.Rarity + "  /  " + d.CharismaValue + " Charisma",small,muted);
-                string state = session.Inventory.Equipped(collectionCharacter) == d.SkinId ? "EQUIPPED" : owned ? "OWNED" : "NOT OWNED";
-                if (Button(new Rect(card.x + 12,card.y + 298,card.width - 24,40),state,previewSkin == d.SkinId ? gold : muted)) previewSkin = d.SkinId;
-            }
-            GUI.EndScrollView();
-            var skin = session.Collections.Skin(previewSkin);
+            var character = session.Characters.Get(collectionCharacter);
+            var skin = session.Collections.Skin(previewSkin ?? session.Collections.DefaultSkin(collectionCharacter));
             if (skin == null) return;
-            float x = width - 388;
-            Box(new Rect(x,214,364,areaHeight),panel);
-            GUI.DrawTexture(new Rect(x + 72,220,220,220),session.Arena.Portraits.Get(skin.SkinId),ScaleMode.ScaleToFit,true);
-            Label(new Rect(x + 22,448,320,34),collectionCharacter + " / " + skin.Name,heading,gold);
-            Label(new Rect(x + 22,490,320,35),skin.Rarity + "  /  +" + skin.CharismaValue + " Charisma when owned",small,muted);
-            Label(new Rect(x + 22,532,320,62),session.Characters.Get(collectionCharacter).Description,body,Color.white);
-            bool unlocked = session.Account.IsUnlocked(collectionCharacter), ownedPreview = session.Inventory.OwnsSkin(skin.SkinId);
-            bool isEquipped = session.Inventory.Equipped(collectionCharacter) == skin.SkinId;
-            string action = !unlocked ? "CHARACTER UNLOCKS AT LV. " + session.Characters.Get(collectionCharacter).UnlockLevel :
-                !ownedPreview ? "CLAIM STARTER PACK FIRST" : isEquipped ? "EQUIPPED" : "EQUIP SKIN";
-            if (Button(new Rect(x + 22,616,320,58),action,gold,unlocked && ownedPreview && !isEquipped)) session.EquipSkin(collectionCharacter,skin.SkinId);
-            Label(new Rect(x + 22,690,320,35),"Appearance saved for this character.",small,muted);
+            float previewWidth = width - 720;
+            Box(new Rect(268,214,previewWidth,areaHeight),panel);
+            float size = Mathf.Min(previewWidth - 48,areaHeight - 88);
+            Portrait(new Rect(292 + (previewWidth - 48 - size) / 2,234,size,size),skin.SkinId,false);
+            Label(new Rect(296,214 + areaHeight - 58,previewWidth - 48,36),character.Name + " / Default",heading,cream);
+            float x = width - 428;
+            Box(new Rect(x,214,404,areaHeight),panel);
+            Label(new Rect(x + 24,240,356,44),character.Name,title,cream);
+            Label(new Rect(x + 24,304,356,74),character.Description,heading,gold);
+            bool unlocked = session.Account.IsUnlocked(collectionCharacter);
+            Label(new Rect(x + 24,410,356,70),unlocked ? "Character unlocked permanently.\nDefault appearance equipped." : "Reach Account Level " + character.UnlockLevel + " to unlock this resident.",body,cream);
+            Label(new Rect(x + 24,510,356,74),"Default skin / Common\nCosmetics do not change your passive.",body,muted);
+            if (Button(new Rect(x + 24,214 + areaHeight - 84,356,52),unlocked ? "SELECT CHARACTER" : "LOCKED / LEVEL " + character.UnlockLevel,gold,unlocked))
+            { session.SelectCharacter(collectionCharacter); collectionOpen = false; }
         }
         private void StickerCollection()
         {

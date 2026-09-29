@@ -62,10 +62,10 @@ namespace ContainerDefense.Editor
             config.Rules.Validate();
             AssetDatabase.LoadAssetAtPath<CharacterConfig>("Assets/Resources/Characters.asset").Validate();
             AssetDatabase.LoadAssetAtPath<CollectionConfig>("Assets/Resources/Collections.asset").Catalog();
-            if (Resources.Load<Shader>("Toy") == null) throw new System.Exception("Toy shader is missing.");
+
             foreach (var skin in AssetDatabase.LoadAssetAtPath<CollectionConfig>("Assets/Resources/Collections.asset").Skins)
-                if (Resources.Load<Texture2D>("Art/" + skin.SkinId) == null) throw new System.Exception("Missing portrait: " + skin.SkinId);
-            if (Resources.Load<Texture2D>("Art/menu_yard") == null || Resources.Load<Font>("Fonts/Nunito") == null)
+                if (Resources.Load<Texture2D>("Art2D/" + skin.SkinId) == null) throw new System.Exception("Missing portrait: " + skin.SkinId);
+            if (Resources.Load<Texture2D>("Art2D/room") == null || Resources.Load<Font>("Fonts/NunitoBold") == null || Resources.Load<Texture2D>("Art2D/houses") == null || Resources.Load<Texture2D>("Art2D/boss") == null || Resources.Load<Texture2D>("Art2D/yard") == null || Resources.Load<Font>("Fonts/Nunito") == null)
                 throw new System.Exception("Menu background or UI font is missing.");
         }
 

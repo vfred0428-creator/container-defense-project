@@ -7,19 +7,19 @@ public static class CollectionTests
     public static string Run()
     {
         passed = 0;
-        Check("Collection catalog has seven defaults, three variants and five sticker definitions",() => {
-            var c = CollectionCatalog.CreateDefault(); Assert(c.Skins.Length == 10 && c.Stickers.Length == 5);
+        Check("Collection catalog has exactly seven defaults and five sticker definitions",() => {
+            var c = CollectionCatalog.CreateDefault(); Assert(c.Skins.Length == 7 && c.Stickers.Length == 5);
             for (int i = 0; i < 7; i++) Assert(c.Skin(c.DefaultSkin((CharacterId)i)).Default);
             foreach (var s in c.Stickers) Assert(s.GiftValue > 0 && !string.IsNullOrEmpty(s.Icon));
         });
         Check("Catalog rejects duplicate IDs, invalid colors and missing defaults",() => {
-            var skins = CollectionCatalog.DefaultSkins(); skins[9].SkinId = skins[8].SkinId; Reject(skins);
-            skins = CollectionCatalog.DefaultSkins(); skins[7].CoatHex = "bad"; Reject(skins);
+            var skins = CollectionCatalog.DefaultSkins(); skins[6].SkinId = skins[5].SkinId; Reject(skins);
+            skins = CollectionCatalog.DefaultSkins(); skins[6].Default = false; skins[6].CoatHex = "bad"; Reject(skins);
             skins = CollectionCatalog.DefaultSkins(); skins[0].Default = false; Reject(skins);
         });
         Check("Catalog snapshots definitions and starter quantities",() => {
-            var c = CollectionCatalog.CreateDefault(); c.Skins[7].CharismaValue = 999; c.StarterStickers[0].QuantityOwned = 0; c.StarterSkins[0] = "bad";
-            var inv = New(c); Assert(inv.ClaimStarter() && inv.Quantity("bunny") == 52 && inv.Charisma == 450);
+            var c = CollectionCatalog.CreateDefault(); c.Skins[0].CharismaValue = 999; c.StarterStickers[0].QuantityOwned = 0;
+            var inv = New(c); Assert(inv.ClaimStarter() && inv.Quantity("bunny") == 52 && inv.Charisma == 100);
         });
         Check("New collections own zero-value defaults and no stickers",() => {
             var inv = New(); Assert(inv.SkinsOwned == 7 && inv.StickerTypesOwned == 0 && inv.Charisma == 0 && !inv.StarterClaimed);
@@ -28,13 +28,13 @@ public static class CollectionTests
         Check("Starter pack grants stacks exactly once, including after reload",() => {
             var inv = New(); Assert(inv.ClaimStarter()); Assert(!inv.ClaimStarter());
             inv = new InventorySystem(inv.Snapshot(),CollectionCatalog.CreateDefault());
-            Assert(!inv.ClaimStarter() && inv.Quantity("bunny") == 52 && inv.Quantity("heart") == 38 && inv.SkinsOwned == 10);
+            Assert(!inv.ClaimStarter() && inv.Quantity("bunny") == 52 && inv.Quantity("heart") == 38 && inv.SkinsOwned == 7);
         });
         Check("Owned skins equip per character and reject unowned or mismatched skins",() => {
             var inv = New(); Assert(!inv.TryEquip(CharacterId.Milo,"milo_night")); Assert(inv.ClaimStarter());
             Assert(!inv.TryEquip(CharacterId.Milo,"lumi_cloudy") && !inv.TryEquip((CharacterId)99,"milo_night") && !inv.TryEquip(CharacterId.Milo,"missing"));
-            Assert(inv.TryEquip(CharacterId.Milo,"milo_night") && inv.TryEquip(CharacterId.Lumi,"lumi_cloudy"));
-            Assert(inv.Equipped(CharacterId.Milo) == "milo_night" && inv.Equipped(CharacterId.Lumi) == "lumi_cloudy");
+            Assert(inv.TryEquip(CharacterId.Milo,"milo_default") && inv.TryEquip(CharacterId.Lumi,"lumi_default"));
+            Assert(inv.Equipped(CharacterId.Milo) == "milo_default" && inv.Equipped(CharacterId.Lumi) == "lumi_default");
         });
         Check("Sticker stacks handle values above 32-bit range and exact subtraction",() => {
             var inv = New(); Assert(inv.TryAddSticker("bunny",5000) && inv.TryAddSticker("bunny",3000000000L));
@@ -50,15 +50,15 @@ public static class CollectionTests
             Assert(!inv.ClaimStarter() && !inv.StarterClaimed && inv.SkinsOwned == 7 && inv.Quantity("bunny") == 0);
         });
         Check("Charisma counts unique ownership, not equipped state or duplicate quantities",() => {
-            var inv = New(); inv.ClaimStarter(); Assert(inv.SkinCharisma == 350 && inv.StickerCharisma == 100 && inv.Charisma == 450);
-            inv.TryEquip(CharacterId.Milo,"milo_night"); inv.TryAddSticker("bunny",5000); Assert(!inv.TryGrantSkin("milo_night") && inv.Charisma == 450);
-            Assert(inv.TryRemoveSticker("bunny",5052) && inv.Quantity("bunny") == 0 && inv.Charisma == 430);
+            var inv = New(); inv.ClaimStarter(); Assert(inv.SkinCharisma == 0 && inv.StickerCharisma == 100 && inv.Charisma == 100);
+            inv.TryEquip(CharacterId.Milo,"milo_night"); inv.TryAddSticker("bunny",5000); Assert(!inv.TryGrantSkin("milo_night") && inv.Charisma == 100);
+            Assert(inv.TryRemoveSticker("bunny",5052) && inv.Quantity("bunny") == 0 && inv.Charisma == 80);
         });
         Check("Collection snapshots are deep copies and cached Charisma is not trusted",() => {
             var inv = New(); inv.ClaimStarter(); var data = inv.Snapshot();
             data.Stickers[0].QuantityOwned = 999; data.EquippedSkins[0].SkinId = "bad"; data.OwnedSkins[0] = "bad"; data.Charisma = long.MaxValue;
             Assert(inv.Quantity("bunny") == 52 && inv.Equipped(CharacterId.Milo) == "milo_default");
-            var restored = new InventorySystem(data,CollectionCatalog.CreateDefault()); Assert(restored.Charisma == 450 && restored.Equipped(CharacterId.Milo) == "milo_default");
+            var restored = new InventorySystem(data,CollectionCatalog.CreateDefault()); Assert(restored.Charisma == 100 && restored.Equipped(CharacterId.Milo) == "milo_default");
         });
         Check("Malformed saved stacks normalize without duplicate inflation",() => {
             var data = new CollectionData { Stickers = new[] { new StickerStack { StickerId = "bunny", QuantityOwned = 10 }, new StickerStack { StickerId = "bunny", QuantityOwned = 20 }, new StickerStack { StickerId = "cat", QuantityOwned = -2 }, null },
@@ -82,6 +82,16 @@ public static class CollectionTests
             var after = new MatchSimulation(new MatchRules());
             Assert(a.TotalXp == 0 && a.Level == 1 && !a.IsUnlocked(CharacterId.Lumi));
             for (int i = 0; i < 6; i++) Assert(before.Players[i].Character.IncomeMultiplier == after.Players[i].Character.IncomeMultiplier && before.Players[i].Gold == after.Players[i].Gold);
+        });
+        Check("2D pivot preserves retired ownership and stacks but equips only active defaults",() => {
+            var data = new CollectionData { OwnedSkins = new[] { "milo_night", "lumi_cloudy", "kiko_red" },
+                EquippedSkins = new[] { new EquippedSkin { CharacterId = CharacterId.Milo, SkinId = "milo_night" } },
+                Stickers = new[] { new StickerStack { StickerId = "bunny", QuantityOwned = 3000000052L } }, StarterClaimed = true };
+            var inv = new InventorySystem(data,CollectionCatalog.CreateDefault());
+            var restored = new InventorySystem(inv.Snapshot(),CollectionCatalog.CreateDefault());
+            Assert(restored.OwnsSkin("milo_night") && restored.OwnsSkin("lumi_cloudy") && restored.OwnsSkin("kiko_red"));
+            Assert(restored.Equipped(CharacterId.Milo) == "milo_default" && !restored.TryEquip(CharacterId.Milo,"milo_night"));
+            Assert(restored.SkinsOwned == 7 && restored.Charisma == 20 && restored.Quantity("bunny") == 3000000052L && !restored.ClaimStarter());
         });
         return passed + " collection scenarios passed.";
     }

@@ -37,23 +37,23 @@ namespace ContainerDefense
             long xp = session.Account.TotalXp;
             hud.OpenCollection(CharacterId.Milo); yield return Capture("01-unclaimed.png");
             if (session.EquipSkin(CharacterId.Milo,"milo_night")) { Fail("Unowned skin was equipped."); yield break; }
-            if (!session.ClaimStarterCollection() || session.ClaimStarterCollection() || session.Inventory.Charisma != 450)
+            if (!session.ClaimStarterCollection() || session.ClaimStarterCollection() || session.Inventory.Charisma != 100)
             { Fail("Starter receipt or Charisma failed."); yield break; }
-            if (session.EquipSkin(CharacterId.Lumi,"lumi_cloudy")) { Fail("Locked character accepted equipment."); yield break; }
-            if (!session.EquipSkin(CharacterId.Milo,"milo_night")) { Fail("Owned skin could not equip."); yield break; }
-            hud.OpenCollection(CharacterId.Milo); yield return Capture("02-equipped-night.png");
+            if (session.EquipSkin(CharacterId.Lumi,"lumi_default")) { Fail("Locked character accepted equipment."); yield break; }
+            if (!session.EquipSkin(CharacterId.Milo,"milo_default")) { Fail("Owned skin could not equip."); yield break; }
+            hud.OpenCollection(CharacterId.Milo); yield return Capture("02-equipped-default.png");
             hud.ShowStickers(); yield return Capture("03-stickers.png");
             // Explicit test account only: exercise exact stack sizes beyond Int32.
             session.Inventory.TryAddSticker("bunny",3000000000L); session.PersistAccount();
             yield return Capture("04-large-stack.png");
             var loaded = new AccountProgression(new LocalSaveService(session.AccountPath).Load(),session.Characters,session.Progression,session.Collections);
-            if (loaded.Inventory.Quantity("bunny") != 3000000052L || loaded.Inventory.Equipped(CharacterId.Milo) != "milo_night" || loaded.Inventory.Charisma != 450 || session.SaveDirty || session.Account.TotalXp != xp)
+            if (loaded.Inventory.Quantity("bunny") != 3000000052L || loaded.Inventory.Equipped(CharacterId.Milo) != "milo_default" || loaded.Inventory.Charisma != 100 || session.SaveDirty || session.Account.TotalXp != xp)
             { Fail("Collection save roundtrip or cosmetic isolation failed."); yield break; }
             hud.CloseCollection(); yield return Capture("05-equipped-title.png");
             session.Play(); yield return new WaitForSecondsRealtime(.5f);
             bool visible = false;
             foreach (var t in session.Arena.GetComponentsInChildren<Transform>())
-                if (t.name == "Milo / milo_night" && t.gameObject.activeInHierarchy) visible = true;
+                if (t.name == "Milo / milo_default" && t.gameObject.activeInHierarchy) visible = true;
             if (!visible || session.Match.Players[0].Character.Id != CharacterId.Milo ||
                 Math.Abs(session.Match.Players[0].Character.IncomeMultiplier - 1.08f) > .001f || session.EquipSkin(CharacterId.Milo,"milo_default"))
             { Fail("Equipped appearance or in-match equipment gate failed."); yield break; }
@@ -62,9 +62,9 @@ namespace ContainerDefense
         }
         private bool VerifyCollection()
         {
-            return session.Inventory.StarterClaimed && session.Inventory.SkinsOwned == 10 &&
-                session.Inventory.Equipped(CharacterId.Milo) == "milo_night" && session.Inventory.Quantity("bunny") == 3000000052L &&
-                session.Inventory.Quantity("heart") == 38 && session.Inventory.Charisma == 450 && !session.ClaimStarterCollection() && !session.SaveDirty;
+            return session.Inventory.StarterClaimed && session.Inventory.SkinsOwned == 7 &&
+                session.Inventory.Equipped(CharacterId.Milo) == "milo_default" && session.Inventory.Quantity("bunny") == 3000000052L &&
+                session.Inventory.Quantity("heart") == 38 && session.Inventory.Charisma == 100 && !session.ClaimStarterCollection() && !session.SaveDirty;
         }
         private IEnumerator Capture(string name)
         {

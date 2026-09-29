@@ -102,9 +102,6 @@ namespace ContainerDefense.Domain
             var result = new List<SkinDefinition>();
             for (int i = 0; i < 7; i++) result.Add(new SkinDefinition { SkinId = CharacterCatalog.Key((CharacterId)i) + "_default",
                 CharacterId = (CharacterId)i, Name = "Default", Default = true });
-            result.Add(new SkinDefinition { SkinId = "milo_night", CharacterId = CharacterId.Milo, Name = "Night Shift", Rarity = CosmeticRarity.Rare, CharismaValue = 75, CoatHex = "334878", AccentHex = "85DADD" });
-            result.Add(new SkinDefinition { SkinId = "lumi_cloudy", CharacterId = CharacterId.Lumi, Name = "Cloudy", Rarity = CosmeticRarity.Epic, CharismaValue = 200, CoatHex = "D8B5EE", AccentHex = "FFFFFF" });
-            result.Add(new SkinDefinition { SkinId = "kiko_red", CharacterId = CharacterId.Kiko, Name = "Red Gear", Rarity = CosmeticRarity.Rare, CharismaValue = 75, CoatHex = "E05464", AccentHex = "FFE09C" });
             return result.ToArray();
         }
         public static StickerDefinition[] DefaultStickers()
@@ -117,7 +114,7 @@ namespace ContainerDefense.Domain
                 CharismaValue = i == 3 ? 50 : i == 0 ? 20 : 10, GiftValue = i == 3 ? 10 : 1 };
             return result;
         }
-        public static string[] DefaultStarterSkins() { return new[] { "milo_night", "lumi_cloudy", "kiko_red" }; }
+        public static string[] DefaultStarterSkins() { return new string[0]; }
         public static StickerStack[] DefaultStarterStickers()
         {
             var ids = new[] { "bunny", "star", "cat", "good", "heart" }; long[] counts = { 52,24,17,7,38 };

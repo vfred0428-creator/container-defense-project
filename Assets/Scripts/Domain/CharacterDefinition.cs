@@ -15,6 +15,9 @@ namespace ContainerDefense.Domain
         public PersonalPassive Passive;
         public float Bonus;
         public string Description;
+        public string DefaultSkinId { get { return CharacterCatalog.Key(Id) + "_default"; } }
+        public string SpriteSetId { get { return DefaultSkinId; } }
+        public string PortraitId { get { return DefaultSkinId; } }
         public CharacterDefinition Copy() { return (CharacterDefinition)MemberwiseClone(); }
     }
 
