@@ -25,7 +25,7 @@ public static class NeighborhoodTests
         Check("Map input and returned snapshots cannot alter an active match", () => {
             var map = MapDefinition.Default(); var m = new MatchSimulation(new MatchRules(),1,null,map);
             map.HouseSpawns[0].X = 100; m.Map.HouseSpawns[1].X = 100; m.Map.Routes[0].NodeSequence[0] = 999;
-            Near(-11,m.Houses[0].Center.X); Near(0,m.Houses[1].Center.X); True(m.Map.Routes[0].NodeSequence[0] != 999);
+            Near(-16.5,m.Houses[0].Center.X); Near(-5.5,m.Houses[1].Center.X); True(m.Map.Routes[0].NodeSequence[0] != 999);
         });
         Check("Invalid route timing and nonfinite coordinates are rejected", () => {
             var map = MapDefinition.Default(); map.Routes[0].TelegraphTime = float.NaN; Reject(map);

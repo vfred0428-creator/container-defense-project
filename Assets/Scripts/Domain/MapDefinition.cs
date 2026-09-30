@@ -38,7 +38,7 @@ namespace ContainerDefense.Domain
         public void Validate()
         {
             if (HouseSpawns == null || HouseSpawns.Length != 12 || Nodes == null || Nodes.Length != 20 || EntryNodes == null || EntryNodes.Length == 0 || Routes == null || Routes.Length == 0)
-                throw new ArgumentException("The fixed neighborhood requires 12 houses and a 4x5 road graph.");
+                throw new ArgumentException("The fixed neighborhood requires 12 houses and a 20-node road graph.");
             for (int i = 0; i < 12; i++) if (HouseSpawns[i] == null || HouseSpawns[i].Id != i || !MatchRules.Finite(HouseSpawns[i].X) || !MatchRules.Finite(HouseSpawns[i].Z)) throw new ArgumentException("Invalid fixed house identity.");
             if (!MatchRules.Finite(MinX) || !MatchRules.Finite(MaxX) || !MatchRules.Finite(MinZ) || !MatchRules.Finite(MaxZ) || MinX >= MaxX || MinZ >= MaxZ) throw new ArgumentException("Invalid map bounds.");
             for (int i = 0; i < Nodes.Length; i++) if (Nodes[i] == null || Nodes[i].Id != i || !MatchRules.Finite(Nodes[i].X) || !MatchRules.Finite(Nodes[i].Z)) throw new ArgumentException("Invalid road node.");
@@ -89,7 +89,8 @@ namespace ContainerDefense.Domain
             foreach (var house in HouseSpawns)
                 if (house.Entry.Distance(Nodes[ClosestNode(house.Entry)].Position) > MaxHouseNodeDistance) throw new ArgumentException("House " + house.Id + " is not adjacent to a road node.");
         }
-        public Point2 Spawn(int player) { return new Point2((player - 2.5f) * .7f,0); }
+        // Everyone starts on the central east-west road, between the first and second house rows.
+        public Point2 Spawn(int player) { return new Point2((player - 2.5f) * .7f,4); }
         public Point2 ClampMove(Point2 from,Point2 next)
         {
             next = new Point2(Math.Max(MinX,Math.Min(MaxX,next.X)),Math.Max(MinZ,Math.Min(MaxZ,next.Z)));
@@ -133,20 +134,19 @@ namespace ContainerDefense.Domain
             foreach (int n in nodes) result.Add(Nodes[n].Position);
             result.Add(to); return result.ToArray();
         }
+        // Four houses per row, three rows, on a 5x4 road grid: wide enough to read on landscape screens.
         public static MapDefinition Default()
         {
-            var map = new MapDefinition { HouseSpawns = new HouseSpawnPoint[12],Nodes = new RouteNode[20],EntryNodes = new[] { 0,1,2,3,7,11,15,19,18,17,16,12,8,4 } };
-            int[] colors = { 0,1,2,3,4,5,2,0,1,3,4,2 };
-            for (int i = 0; i < 12; i++) map.HouseSpawns[i] = new HouseSpawnPoint { Id = i,X = (i % 3 - 1) * 11,Z = 12 - i / 3 * 8,ColorIndex = colors[i] };
-            // House 08 sits just southwest of the plaza so the common spawn area remains open.
-            map.HouseSpawns[7].X = -1.5f; map.HouseSpawns[7].Z = -4.5f;
-            for (int i = 0; i < 20; i++) map.Nodes[i] = new RouteNode { Id = i,X = -16.5f + i % 4 * 11,Z = 16 - i / 4 * 8 };
+            var map = new MapDefinition { HouseSpawns = new HouseSpawnPoint[12],Nodes = new RouteNode[20],EntryNodes = new[] { 0,1,2,3,4,9,14,19,18,17,16,15,10,5 },MinX = -24,MaxX = 24,MinZ = -14,MaxZ = 14 };
+            int[] colors = { 0,1,2,3,4,5,2,0,1,3,5,4 };
+            for (int i = 0; i < 12; i++) map.HouseSpawns[i] = new HouseSpawnPoint { Id = i,X = -16.5f + i % 4 * 11,Z = 8 - i / 4 * 8,ColorIndex = colors[i] };
+            for (int i = 0; i < 20; i++) map.Nodes[i] = new RouteNode { Id = i,X = -22 + i % 5 * 11,Z = 12 - i / 5 * 8 };
             map.Routes = new[] {
-                new BossRouteDefinition { RouteId = "east_straight",Kind = BossRouteKind.Straight,NodeSequence = new[] { 3,7,11,15,19 } },
-                new BossRouteDefinition { RouteId = "west_sweep",Kind = BossRouteKind.Sweep,NodeSequence = new[] { 0,4,8,12,16,17,18,19 } },
-                new BossRouteDefinition { RouteId = "zig_zag",Kind = BossRouteKind.ZigZag,NodeSequence = new[] { 0,1,2,3,7,6,5,4,8,9,10,11,15,14,13,12 } },
-                new BossRouteDefinition { RouteId = "north_cluster",Kind = BossRouteKind.Regional,NodeSequence = new[] { 0,1,2,3,7,6,5,4 } },
-                new BossRouteDefinition { RouteId = "outer_loop",Kind = BossRouteKind.Outer,NodeSequence = new[] { 0,1,2,3,7,11,15,19,18,17,16,12,8,4,0 } } };
+                new BossRouteDefinition { RouteId = "middle_straight",Kind = BossRouteKind.Straight,NodeSequence = new[] { 5,6,7,8,9 } },
+                new BossRouteDefinition { RouteId = "west_sweep",Kind = BossRouteKind.Sweep,NodeSequence = new[] { 0,5,10,15,16,17,18,19 } },
+                new BossRouteDefinition { RouteId = "zig_zag",Kind = BossRouteKind.ZigZag,NodeSequence = new[] { 0,1,2,3,4,9,8,7,6,5,10,11,12,13,14,19,18,17,16,15 } },
+                new BossRouteDefinition { RouteId = "north_cluster",Kind = BossRouteKind.Regional,NodeSequence = new[] { 0,1,2,3,4,9,8,7,6,5 } },
+                new BossRouteDefinition { RouteId = "outer_loop",Kind = BossRouteKind.Outer,NodeSequence = new[] { 0,1,2,3,4,9,14,19,18,17,16,15,10,5,0 } } };
             map.Validate(); return map;
         }
     }

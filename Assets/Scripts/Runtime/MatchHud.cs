@@ -1,201 +1,301 @@
+using System.Collections.Generic;
 using ContainerDefense.Domain;
 using UnityEngine;
 
 namespace ContainerDefense
 {
-    // Desktop prototype HUD. The simulation and input port remain independent of IMGUI.
+    // Runtime IMGUI HUD. Layout follows the UI spec: 1920x1080 reference scaled with match 0.5,
+    // everything interactive inside the safe area, regions cut from their parents so they never overlap.
     public sealed partial class MatchHud : MonoBehaviour
     {
         private GameSession session;
-        private GUIStyle title, heading, body, small, button, number, brand;
-        private readonly Color cream = new Color(1,.95f,.87f);
-        private Texture2D rounded;
-        private readonly Color panel = new Color(0.055f,0.075f,0.135f,0.96f);
-        private readonly Color muted = new Color(0.66f,0.73f,0.84f);
-        private readonly Color gold = new Color(1,0.76f,0.34f);
-        private readonly Color green = new Color(0.36f,0.9f,0.66f);
-        private readonly Color red = new Color(1,0.35f,0.4f);
-        private float width, height;
+        private float width, height, scale;
+        private Rect safe;
+        private const float M = HudTheme.Margin, G = HudTheme.Gap, Touch = HudTheme.Touch;
         public void Initialize(GameSession game) { session = game; }
-
-        private void EnsureStyles()
-        {
-            if (title != null) return;
-            Font font = Resources.Load<Font>("Fonts/Nunito");
-            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            title = Style(font,43,FontStyle.Bold); heading = Style(font,24,FontStyle.Bold);
-            brand = Style(font,39,FontStyle.Bold);
-            body = Style(font,18,FontStyle.Normal); small = Style(font,14,FontStyle.Normal);
-            number = Style(font,30,FontStyle.Bold);
-            rounded = new Texture2D(32,32,TextureFormat.RGBA32,false) { name = "HUD rounded panel", filterMode = FilterMode.Bilinear };
-            for (int y = 0; y < 32; y++) for (int x = 0; x < 32; x++)
-            {
-                float dx = Mathf.Max(7 - x, x - 24), dy = Mathf.Max(7 - y, y - 24);
-                float distance = Mathf.Sqrt(Mathf.Max(0,dx) * Mathf.Max(0,dx) + Mathf.Max(0,dy) * Mathf.Max(0,dy));
-                rounded.SetPixel(x,y,new Color(1,1,1,Mathf.Clamp01(8 - distance)));
-            }
-            rounded.Apply();
-            button = Style(font,18,FontStyle.Bold); button.alignment = TextAnchor.MiddleCenter;
-            button.normal.background = rounded; button.hover.background = rounded; button.active.background = rounded;
-            button.normal.textColor = new Color(0.07f,0.1f,0.16f);
-            button.hover.textColor = button.active.textColor = button.normal.textColor;
-            button.border = new RectOffset(10,10,10,10); button.wordWrap = true;
-        }
-        private static GUIStyle Style(Font font, int size, FontStyle weight)
-        { return new GUIStyle { font = weight == FontStyle.Bold ? Resources.Load<Font>("Fonts/NunitoBold") ?? font : font, fontSize = size, fontStyle = FontStyle.Normal, normal = { textColor = Color.white }, wordWrap = true }; }
 
         private void OnGUI()
         {
+            DrawHud(); HudLayout.DrawSimulatedNotch();
+        }
+        private void DrawHud()
+        {
             if (session == null || session.Match == null) return;
-            EnsureStyles();
-            float scale = Mathf.Min(Screen.width / 1440f, Screen.height / 900f);
-            width = Screen.width / scale; height = Screen.height / scale;
+            scale = HudTheme.Scale; width = Screen.width / scale; height = Screen.height / scale;
+            var s = HudLayout.SafeAreaGui; safe = new Rect(s.x / scale,s.y / scale,s.width / scale,s.height / scale);
+            if (Event.current.type == EventType.Repaint) HudAudit.Begin(safe);
             GUI.matrix = Matrix4x4.TRS(Vector3.zero,Quaternion.identity,Vector3.one * scale);
-            session.Arena.DrawLabels();
-            if (!session.Started) { if (rankedOpen) RankedScreen(); else if (socialOpen) SocialScreen(); else if (collectionOpen) CollectionScreen(); else TitleScreen(); return; }
-            MapControls(); TopBar(); HouseBoard(); MapOverviewButton();
+            if (!session.Started) {
+                HudLayout.Clear();
+                if (rankedOpen) RankedScreen(); else if (socialOpen) SocialScreen(); else if (collectionOpen) CollectionScreen(); else TitleScreen();
+                return;
+            }
+            var layout = PlanMatch();
+            session.Arena.DrawLabels(); HouseInterior();
+            MapControls(layout); TopBar(layout); LeftColumn(layout); MiniMap(layout.MiniMap); HouseBoard(layout.Board); Toasts(layout.Toasts);
             if (session.Paused) PauseScreen();
             else if (session.Match.Finished) Results();
         }
 
-        private void TopBar()
+        // ---------- In-match layout ----------
+        private struct MatchLayout { public Rect Strip, Boss, Gold, Timer, Gear, MiniMap, Left, Board, Toasts; }
+        private MatchLayout PlanMatch()
+        {
+            var l = new MatchLayout(); var area = Cut.Inset(safe,M);
+            const float band = 136;
+            var top = Cut.Top(ref area,band,G);
+            l.Strip = Cut.Left(ref top,12 * 2 + 6 * 96 + 5 * 12,G);
+            l.Gear = Cut.Right(ref top,Touch,G); l.Gear = new Rect(l.Gear.x,l.Gear.y + (band - Touch) / 2,Touch,Touch);
+            l.Timer = Cut.Right(ref top,196,G); l.Timer = new Rect(l.Timer.x,l.Timer.y + (band - 64) / 2,196,64);
+            l.Gold = Cut.Right(ref top,236,G); l.Gold = new Rect(l.Gold.x,l.Gold.y + (band - 64) / 2,236,64);
+            // The boss bar sits at screen centre when it fits between the side groups, else in the gap.
+            float bossWidth = Mathf.Min(620,top.width);
+            float centred = width / 2 - bossWidth / 2;
+            l.Boss = new Rect(Mathf.Clamp(centred,top.x,top.xMax - bossWidth),top.y,bossWidth,band);
+            if (top.width < 380) { l.Boss = new Rect(width / 2 - 310,area.y,620,band); Cut.Top(ref area,band,G); }
+            l.Board = Cut.Bottom(ref area,260,G);
+            if (l.Board.width > 1872) l.Board = new Rect(l.Board.center.x - 936,l.Board.y,1872,l.Board.height);
+            l.Toasts = Cut.Bottom(ref area,120,0); l.Toasts = Cut.Center(l.Toasts,Mathf.Min(880,l.Toasts.width),120);
+            l.MiniMap = new Rect(area.xMax - 300,area.y,300,196);
+            float leftRows = session.Scouting || session.Match.Players[0].Eliminated ? 3 : CanOpenRoom ? 2 : 1;
+            l.Left = new Rect(area.x,area.y,232,leftRows * Touch + (leftRows - 1) * G);
+            // Publish reserved space so the camera and world labels stay clear of the HUD.
+            HudLayout.Clear();
+            HudLayout.ReservedTop = (l.Strip.yMax + G) / height;
+            HudLayout.ReservedBottom = (height - l.Board.y + G) / height;
+            HudLayout.ReservedLeft = (l.Left.xMax + G) / width;
+            HudLayout.ReservedRight = (width - l.MiniMap.x + G) / width;
+            foreach (var r in new[] { l.Strip,l.Boss,l.Gold,l.Timer,l.Gear,l.MiniMap,l.Left,l.Board })
+                HudLayout.Block(new Rect(r.x * scale,r.y * scale,r.width * scale,r.height * scale));
+            if (!string.IsNullOrEmpty(session.CurrentNotice) || RouteWarning()) HudLayout.Block(new Rect(l.Toasts.x * scale,l.Toasts.y * scale,l.Toasts.width * scale,l.Toasts.height * scale));
+            return l;
+        }
+        private bool RouteWarning()
         {
             var m = session.Match; var p = m.Players[0];
-            for (int i = 0; i < 6; i++)
-            {
-                var resident = m.Players[i]; float x = 20 + i * 70;
-                Box(new Rect(x,20,65,104),i == 0 ? new Color(.5f,.37f,.15f,.95f) : panel);
-                Color previous = GUI.color; if (resident.Eliminated) GUI.color = new Color(.4f,.4f,.45f);
-                Portrait(new Rect(x + 4,24,57,62),i == 0 ? session.Inventory.Equipped(resident.Character.Id) : session.Collections.DefaultSkin(resident.Character.Id),true);
-                GUI.color = previous;
-                float hp = resident.HouseId < 0 ? 1 : m.Houses[resident.HouseId].Health / m.Houses[resident.HouseId].MaxHealth;
-                Bar(new Rect(x + 5,88,55,6),resident.Eliminated ? 0 : hp,green);
-                Label(new Rect(x + 5,99,60,23),resident.Eliminated ? "OUT" : resident.Character.Id.ToString(),small,cream);
-                if (GUI.Button(new Rect(x,20,65,104),GUIContent.none,GUIStyle.none)) session.Scout(i);
+            return m.Boss.Phase == BossPhase.Telegraphing && p.HouseId >= 0 && !p.Eliminated && System.Array.IndexOf(m.Boss.RouteHouses,p.HouseId) >= 0;
+        }
+        // Players ordered by house number; residents without a house come last.
+        private List<PlayerState> HouseOrder()
+        {
+            var list = new List<PlayerState>(session.Match.Players);
+            list.Sort((a,b) => {
+                int ha = a.HouseId >= 0 ? a.HouseId : 100 + a.Id, hb = b.HouseId >= 0 ? b.HouseId : 100 + b.Id;
+                return ha.CompareTo(hb);
+            });
+            return list;
+        }
+        private void TopBar(MatchLayout l)
+        {
+            var m = session.Match;
+            // Player strip.
+            HudTheme.Panel(l.Strip);
+            var cells = Cut.Row(Cut.Inset(l.Strip,12),6,12); var order = HouseOrder();
+            for (int i = 0; i < 6; i++) {
+                var p = order[i]; var cell = cells[i]; var face = new Rect(cell.x,cell.y,96,96);
+                HudTheme.Card(face);
+                var old = GUI.color; if (p.Eliminated) GUI.color = new Color(.45f,.45f,.5f,1);
+                Portrait(Cut.Inset(face,4),p.Id == 0 ? session.Inventory.Equipped(p.Character.Id) : session.Collections.DefaultSkin(p.Character.Id),true);
+                GUI.color = old;
+                if (session.ViewedPlayer == p.Id) HudTheme.Ring(face);
+                var badge = new Rect(face.xMax - 44,face.yMax - 30,44,28);
+                HudTheme.Fill(badge,p.Eliminated ? HudTheme.DangerFill : p.Id == 0 ? HudTheme.PrimaryFill : HudTheme.SecondaryFill,10);
+                HudTheme.OutlinedText(badge,p.Eliminated ? "OUT" : p.HouseId >= 0 ? (p.HouseId + 1).ToString("00") : "--",HudTheme.Label,Color.white,TextAnchor.MiddleCenter);
+                float hp = p.HouseId < 0 || p.Eliminated ? 0 : m.Houses[p.HouseId].Health / m.Houses[p.HouseId].MaxHealth;
+                HudTheme.Bar(new Rect(cell.x,face.yMax + 8,96,8),hp,p.Id == 0 ? HudTheme.Good : HudTheme.Info);
+                if (Hit(new Rect(cell.x,cell.y,96,112),"Resident " + p.Name)) session.Scout(p.Id);
             }
-            float center = width / 2;
-            Box(new Rect(center - 265,22,530,88),panel);
+            // Boss bar.
+            HudTheme.Panel(l.Boss);
+            var inner = Cut.Inset(l.Boss,14);
+            var row = Cut.Top(ref inner,36,6);
             bool prep = m.Phase == MatchPhase.Preparation;
-            string target = m.Boss.TargetHouseId >= 0 ? " / HOUSE " + (m.Boss.TargetHouseId + 1).ToString("00") : " / RECOVERY";
-            Label(new Rect(center - 245,34,490,26),prep ? (p.HouseId < 0 ? "CLAIM A HOUSE" : "PREPARE YOUR HOUSE") : "WAVE " + m.Boss.Wave + target,heading,prep ? gold : Color.white);
-            Bar(new Rect(center - 245,73,490,13),m.Boss.Health / m.Boss.MaxHealth,red);
-            if (!prep) Label(new Rect(center - 245,88,490,22),m.Boss.Phase == BossPhase.Telegraphing ? "ROUTE " + string.Join(" > ",System.Array.ConvertAll(m.Boss.RouteHouses,id => (id + 1).ToString("00"))) + " / " + Mathf.CeilToInt(m.Boss.TelegraphRemaining) + "s" : m.Boss.Phase.ToString(),small,muted);
-            Box(new Rect(width - 323,22,222,88),panel);
-            Label(new Rect(width - 305,32,185,32),((int)p.Gold).ToString("N0") + " YOUR GOLD",body,gold);
-            Label(new Rect(width - 305,73,185,24),prep ? Mathf.CeilToInt(m.PreparationRemaining) + "s until storm" : Clock(m.CombatSeconds) + "  /  " + m.LivingHouses() + " alive",small,Color.white);
-            if (Button(new Rect(width - 83,22,60,60),"II",new Color(0.65f,0.72f,0.85f))) session.TogglePause();
+            HudTheme.Text(Cut.Left(ref row,200),prep ? "PREPARE" : "WAVE " + m.Boss.Wave,HudTheme.Body,prep ? HudTheme.Gold : HudTheme.Ink,true);
+            HudTheme.Text(row,BossStatus(),HudTheme.Label,HudTheme.Muted,false,TextAnchor.MiddleRight);
+            HudTheme.Bar(Cut.Top(ref inner,30,6),m.Boss.Health / m.Boss.MaxHealth,HudTheme.Bad,HudTheme.Number(Mathf.Ceil(m.Boss.Health)) + " / " + HudTheme.Number(m.Boss.MaxHealth));
+            HudTheme.Text(inner,BossDetail(),HudTheme.Label,HudTheme.Muted,false,TextAnchor.MiddleCenter);
+            // Gold and timer pills, settings gear.
+            HudTheme.Pill(l.Gold); HudIcons.Draw(new Rect(l.Gold.x + 12,l.Gold.y + 10,44,44),"icon_coin");
+            HudTheme.Text(new Rect(l.Gold.x + 64,l.Gold.y,l.Gold.width - 76,l.Gold.height),HudTheme.Number(m.Players[0].Gold),HudTheme.Body,HudTheme.Gold,true);
+            HudTheme.Pill(l.Timer); HudIcons.Draw(new Rect(l.Timer.x + 12,l.Timer.y + 10,44,44),"icon_timer");
+            HudTheme.Text(new Rect(l.Timer.x + 64,l.Timer.y,l.Timer.width - 76,l.Timer.height),HudTheme.Clock(prep ? m.PreparationRemaining + .99f : m.CombatSeconds),HudTheme.Body,prep ? HudTheme.Gold : HudTheme.Ink,true);
+            if (HudTheme.Button(l.Gear,"",ButtonKind.Secondary,!m.Finished)) session.TogglePause();
+            HudIcons.Draw(Cut.Inset(l.Gear,20),"icon_gear");
         }
-
-        private void BottomBar()
+        private string BossStatus()
         {
-            var m = session.Match; var human = m.Players[0];
-            bool spectator = human.Eliminated;
-            var p = m.Players[spectator ? session.SpectatedPlayer : 0];
-            float y = height - 212;
-            string notice = session.CurrentNotice;
-            if (!string.IsNullOrEmpty(notice) && !m.Finished)
-            {
-                Box(new Rect(width / 2 - 385,y - 55,770,42),panel);
-                Label(new Rect(width / 2 - 366,y - 46,732,28),notice,body,gold);
+            var m = session.Match;
+            if (m.Phase == MatchPhase.Preparation) return "Storm arrives soon";
+            switch (m.Boss.Phase) {
+                case BossPhase.Telegraphing: return "Aiming at house " + (m.Boss.TargetHouseId + 1).ToString("00");
+                case BossPhase.Travelling: return "Moving to house " + (m.Boss.TargetHouseId + 1).ToString("00");
+                case BossPhase.Attacking: return "Attacking house " + (m.Boss.TargetHouseId + 1).ToString("00");
+                case BossPhase.Recovery: return "Recovering";
+                case BossPhase.Waiting: return m.Finished ? "Match over" : "Waiting";
+                case BossPhase.Dead: return "Defeated";
+                default: return "Choosing a route";
             }
-            Box(new Rect(24,y,width - 48,188),panel);
-            if (p.HouseId < 0)
-            {
-                Label(new Rect(48,y + 22,700,32),"YOUR HOME IS WAITING",heading,gold);
-                Label(new Rect(48,y + 67,780,66),"Move to the steps in front of a free door.\nPress E to claim it, then E again to sleep.",body,Color.white);
-                int nearby = session.NearbyHouse();
-                string action = nearby < 0 ? "MOVE TO A DOOR" : m.Houses[nearby].OwnerId < 0 ? "[E] CLAIM " + (nearby + 1).ToString("00") : "ALREADY CLAIMED";
-                if (Button(new Rect(width - 370,y + 45,312,60),action,gold,nearby >= 0 && m.Houses[nearby].OwnerId < 0 && !spectator)) session.Interact();
-            }
-            else
-            {
-                var h = m.Houses[p.HouseId];
-                Label(new Rect(48,y + 16,325,34),(spectator ? "WATCHING " : "YOUR HOUSE ") + (h.Id + 1).ToString("00"),heading,gold);
-                Label(new Rect(48,y + 55,325,24),p.Sleeping ? "SLEEPING  /  +" + m.Income(h.Id).ToString("0.##") + " gold / sec" : "AWAKE  /  income paused",body,p.Sleeping ? green : muted);
-                Label(new Rect(48,y + 86,310,22),"DOOR  " + Mathf.CeilToInt(h.Health) + " / " + h.MaxHealth,small,Color.white);
-                Bar(new Rect(48,y + 115,285,10),h.Health / h.MaxHealth,green);
-                if (Button(new Rect(48,y + 139,285,32),spectator ? "[TAB] NEXT RESIDENT" : p.Sleeping ? "[E] WAKE UP" : "[E] SLEEP",new Color(0.66f,0.75f,0.86f),!m.Finished))
-                { if (spectator) session.CycleSpectator(); else session.Interact(); }
-                float cardWidth = (width - 416) / 3;
-                UpgradeCard(new Rect(365,y + 17,cardWidth - 14,155),h,UpgradeKind.Bed,"BED",h.BedLevel,"+" + m.Income(h.Id).ToString("0.##") + " gold / sec",1,spectator);
-                UpgradeCard(new Rect(365 + cardWidth,y + 17,cardWidth - 14,155),h,UpgradeKind.Door,"DOOR",h.DoorLevel,h.MaxHealth.ToString("0.#") + " maximum HP",2,spectator);
-                UpgradeCard(new Rect(365 + cardWidth * 2,y + 17,cardWidth - 14,155),h,UpgradeKind.Weapon,"WEAPON",h.WeaponLevel,m.Damage(h.Id).ToString("0.#") + " damage / shot",3,spectator);
-            }
-            Label(new Rect(30,height - 20,1000,20),"WASD / arrows  Move     E / Space  Interact     1 / 2 / 3  Upgrade     Tab  Spectate     Esc  Pause",small,muted);
         }
-
-        private void UpgradeCard(Rect rect, HouseState house, UpgradeKind kind, string name, int level, string effect, int key, bool spectator)
+        private string BossDetail()
         {
-            Box(rect,new Color(0.13f,0.18f,0.27f));
-            Label(new Rect(rect.x + 16,rect.y + 12,rect.width - 32,28),name + "  LV." + (level + 1),heading,Color.white);
-            Label(new Rect(rect.x + 16,rect.y + 49,rect.width - 32,28),effect,body,muted);
-            int cost = session.Match.UpgradeCost(house.Id,kind);
-            bool allowed = !spectator && !session.Match.Finished && !house.IsBuilding && cost >= 0 && session.Match.Players[0].Gold >= cost;
-            string action = cost < 0 ? "MAX LEVEL" : spectator ? "SPECTATING" : "[" + key + "]  UPGRADE  /  " + cost;
-            if (house.IsBuilding)
-            {
-                action = house.BuildingKind == kind ? "BUILDING  " + house.BuildRemaining.ToString("0.0") + "s" : "BUILDER BUSY";
-                if (house.BuildingKind == kind) Bar(new Rect(rect.x + 16,rect.y + 83,rect.width - 32,6),1 - house.BuildRemaining / house.BuildDuration,green);
+            var m = session.Match;
+            if (m.Phase == MatchPhase.Preparation) return m.LivingHouses() + " of 12 houses claimed";
+            if (m.Boss.Phase == BossPhase.Telegraphing)
+                return "Route " + string.Join(" > ",System.Array.ConvertAll(m.Boss.RouteHouses,id => (id + 1).ToString("00"))) + "  ·  " + Mathf.CeilToInt(m.Boss.TelegraphRemaining) + "s";
+            return m.LivingHouses() + " houses standing";
+        }
+        private void LeftColumn(MatchLayout l)
+        {
+            var m = session.Match; bool finished = m.Finished || session.Paused;
+            var area = l.Left;
+            if (HudTheme.Button(Cut.Top(ref area,Touch,G),session.Overview ? "FOCUS HOUSE" : "VIEW MAP",ButtonKind.Secondary,!finished && m.Players[session.ViewedPlayer].HouseId >= 0)) session.Overview = !session.Overview;
+            if (!session.Scouting && !m.Players[0].Eliminated) {
+                if (CanOpenRoom && HudTheme.Button(Cut.Top(ref area,Touch,G),RoomOpen ? "VIEW YARD" : "MY ROOM",ButtonKind.Secondary,!finished)) RoomOpen = !RoomOpen;
+                return;
             }
-            if (Button(new Rect(rect.x + 12,rect.y + 99,rect.width - 24,44),action,gold,allowed)) session.Buy(kind);
+            if (!m.Players[0].Eliminated) {
+                if (HudTheme.Button(Cut.Top(ref area,Touch,G),"MY HOUSE",ButtonKind.Primary,!finished)) { session.ReturnToOwnHouse(); ShowBuildBoard(false); }
+            }
+            else Cut.Top(ref area,Touch,G);
+            var arrows = Cut.Row(Cut.Top(ref area,Touch),2,G);
+            if (HudTheme.Button(new Rect(arrows[0].x,arrows[0].y,Touch,Touch),"<",ButtonKind.Secondary,!finished,false,HudTheme.Body)) Step(-1);
+            if (HudTheme.Button(new Rect(arrows[1].xMax - Touch,arrows[1].y,Touch,Touch),">",ButtonKind.Secondary,!finished,false,HudTheme.Body)) Step(1);
+        }
+        private void Step(int direction)
+        {
+            var order = HouseOrder(); int index = order.FindIndex(p => p.Id == session.ViewedPlayer);
+            for (int i = 1; i <= 6; i++) {
+                var next = order[((index + direction * i) % 6 + 6) % 6];
+                if (!session.Match.Players[0].Eliminated || !next.Eliminated) { session.Scout(next.Id); return; }
+            }
+        }
+        private void MiniMap(Rect r)
+        {
+            var m = session.Match; HudTheme.Panel(r);
+            var inner = Cut.Inset(r,20);
+            const float cellW = 52, cellH = 36;
+            var arena = session.Arena;
+            if (m.Boss.Phase == BossPhase.Telegraphing || m.Boss.Phase == BossPhase.Travelling) {
+                var previous = arena.MapFraction(m.Boss.Position);
+                foreach (var point in m.Boss.RoutePath) {
+                    var next = arena.MapFraction(point);
+                    for (int i = 0; i <= 10; i++) {
+                        var f = Vector2.Lerp(previous,next,i / 10f);
+                        HudTheme.Fill(new Rect(inner.x + f.x * inner.width - 2,inner.y + f.y * inner.height - 2,4,4),HudTheme.Hex(0xE86A4A),2);
+                    }
+                    previous = next;
+                }
+            }
+            foreach (var h in m.Houses) {
+                var f = arena.MapFraction(h.Center);
+                var cell = new Rect(inner.x + f.x * inner.width - cellW / 2,inner.y + f.y * inner.height - cellH / 2,cellW,cellH);
+                cell.x = Mathf.Clamp(cell.x,inner.x - 8,inner.xMax - cellW + 8); cell.y = Mathf.Clamp(cell.y,inner.y - 8,inner.yMax - cellH + 8);
+                Color c = h.Destroyed || h.Vacated ? HudTheme.Hex(0x2E3550) : h.OwnerId == 0 ? HudTheme.PrimaryFill : h.OwnerId < 0 ? HudTheme.Hex(0x3A4670) : HudTheme.SecondaryFill;
+                HudTheme.Fill(cell,c,8);
+                if (h.Id == m.Boss.TargetHouseId) HudTheme.Ring(cell);
+                HudTheme.OutlinedText(cell,(h.Id + 1).ToString("00"),HudTheme.Label,h.OwnerId < 0 ? HudTheme.Muted : Color.white,TextAnchor.MiddleCenter);
+            }
+            var b = arena.MapFraction(m.Boss.Position);
+            if (m.Boss.Phase != BossPhase.Dead) HudTheme.Fill(new Rect(inner.x + b.x * inner.width - 8,inner.y + b.y * inner.height - 8,16,16),HudTheme.Bad,8);
+        }
+        // Free houses on the map are tap targets while claiming.
+        private void MapControls(MatchLayout l)
+        {
+            var m = session.Match; var p = m.Players[0];
+            if (p.HouseId >= 0 || p.Eliminated || session.Scouting || m.Phase != MatchPhase.Preparation || session.Paused) return;
+            foreach (var h in m.Houses) {
+                if (h.OwnerId >= 0) continue;
+                Vector2 point = session.Arena.ScreenPoint(h.Center) / scale;
+                float unit = Mathf.Abs(session.Arena.ScreenPoint(new Point2(h.Center.X + 1,h.Center.Z)).x / scale - point.x);
+                var rect = new Rect(point.x - unit * 2.6f,point.y - unit * 2.2f,unit * 5.2f,unit * 3.8f);
+                if (rect.width < Touch || rect.Overlaps(l.Board) || rect.Overlaps(l.Strip) || rect.Overlaps(l.MiniMap) || rect.Overlaps(l.Left) || rect.Overlaps(l.Boss)) continue;
+                if (Hit(rect,"Claim house " + (h.Id + 1))) session.WalkToHouse(h.Id);
+            }
+        }
+        private void Toasts(Rect slot)
+        {
+            var lines = new List<KeyValuePair<string,Color>>();
+            if (RouteWarning()) lines.Add(new KeyValuePair<string,Color>("Your house is on the boss route",HudTheme.Bad));
+            if (!string.IsNullOrEmpty(session.CurrentNotice) && !session.Match.Finished) lines.Add(new KeyValuePair<string,Color>(session.CurrentNotice,HudTheme.Gold));
+            float y = slot.yMax;
+            for (int i = lines.Count - 1; i >= 0 && i >= lines.Count - 2; i--) {
+                var size = HudTheme.TextStyle(HudTheme.Label,true,TextAnchor.MiddleCenter,false).CalcSize(new GUIContent(lines[i].Key));
+                float w = Mathf.Min(slot.width,size.x + 64); var r = new Rect(slot.center.x - w / 2,y - 56,w,56);
+                HudTheme.Panel(r,false); HudTheme.Text(Cut.Inset(r,12),lines[i].Key,HudTheme.Label,lines[i].Value,true,TextAnchor.MiddleCenter);
+                y -= 64;
+            }
         }
 
+        // ---------- Pause and results ----------
         private void PauseScreen()
         {
-            Overlay(); float x = width / 2 - 220, y = height / 2 - 190;
-            Box(new Rect(x,y,440,380),panel);
-            Label(new Rect(x + 35,y + 34,370,50),"TAKE A BREATHER",heading,gold);
-            Label(new Rect(x + 35,y + 92,370,50),"Local match paused.",body,muted);
-            if (Button(new Rect(x + 35,y + 152,370,52),"RESUME",gold)) session.TogglePause();
-            if (Button(new Rect(x + 35,y + 220,370,52),"RESTART MATCH",new Color(0.65f,0.75f,0.87f))) session.Play();
-            if (Button(new Rect(x + 35,y + 288,370,52),"BACK TO TITLE",new Color(0.65f,0.75f,0.87f))) session.ReturnToTitle();
+            Overlay();
+            var panel = Cut.Center(safe,Mathf.Min(560,safe.width - M * 2),Mathf.Min(620,safe.height - M * 2));
+            HudTheme.Panel(panel); var inner = Cut.Inset(panel,40);
+            HudTheme.Text(Cut.Top(ref inner,72,8),"PAUSED",HudTheme.Title,HudTheme.Ink,true,TextAnchor.MiddleCenter);
+            HudTheme.Text(Cut.Bottom(ref inner,64,G),"WASD move  ·  E claim or sleep  ·  Tab spectate  ·  Esc pause",HudTheme.Label,HudTheme.Muted,false,TextAnchor.MiddleCenter,true);
+            var buttons = Cut.Column(Cut.Bottom(ref inner,Touch * 3 + G * 2),3,G);
+            if (HudTheme.Button(buttons[0],"RESUME",ButtonKind.Primary,true,false,HudTheme.Body)) session.TogglePause();
+            if (HudTheme.Button(buttons[1],"RESTART",ButtonKind.Secondary,true,false,HudTheme.Body)) session.Play();
+            if (HudTheme.Button(buttons[2],"QUIT TO TITLE",ButtonKind.Secondary,true,false,HudTheme.Body)) session.ReturnToTitle();
         }
-
         private void Results()
         {
             Overlay(); var m = session.Match; var p = m.Players[0];
-            bool won = m.Phase == MatchPhase.Victory && !p.Eliminated;
-            float x = width / 2 - 290, y = height / 2 - 305;
-            Box(new Rect(x,y,580,610),panel);
-            bool lastStanding = m.EndReason == MatchEndReason.LastStanding;
-            Label(new Rect(x + 40,y + 34,500,54),won ? (lastStanding ? "LAST ONE STANDING" : "STORM SURVIVED") : "PLACED #" + p.Placement,title,won ? gold : red);
+            bool won = m.Phase == MatchPhase.Victory && !p.Eliminated, lastStanding = m.EndReason == MatchEndReason.LastStanding;
+            var panel = Cut.Center(safe,Mathf.Min(760,safe.width - M * 2),Mathf.Min(760,safe.height - M * 2));
+            HudTheme.Panel(panel); var inner = Cut.Inset(panel,40);
+            string title = won ? (lastStanding ? "LAST ONE STANDING" : "STORM SURVIVED") : "PLACED #" + p.Placement;
+            HudTheme.Text(Cut.Top(ref inner,68,4),title,HudTheme.Title,won ? HudTheme.Gold : HudTheme.Bad,true);
             string winner = m.WinnerId >= 0 ? m.Players[m.WinnerId].Name : "";
-            Label(new Rect(x + 40,y + 101,500,52),won ? (lastStanding ? "Every other home fell. You placed #1." : "Your little home held on.") : lastStanding ? winner + " was the last one standing." : m.Phase == MatchPhase.Victory ? "The remaining residents defeated the boss." : "The storm claimed every home.",body,muted);
-            Label(new Rect(x + 40,y + 173,310,166),"Survival time\n\nBoss damage\n\nGold earned\n\nUpgrades purchased",body,muted);
-            Label(new Rect(x + 360,y + 173,180,166),Clock(p.SurvivalSeconds) + "\n\n" + Mathf.RoundToInt(p.DamageDealt) + "\n\n" + ((int)p.GoldEarned).ToString("N0") + "\n\n" + p.UpgradesPurchased,body,Color.white);
-            var reward = session.LastReward;
-            if (reward != null)
-            {
-                Label(new Rect(x + 40,y + 355,500,33),"+" + reward.Xp + " XP  /  ACCOUNT LEVEL " + reward.NewLevel,heading,gold);
-                string unlocked = reward.Unlocked.Length == 0 ? (reward.Xp == 0 ? "Claim a house to earn match XP." : session.SaveStatus) :
-                    "UNLOCKED: " + string.Join(", ",System.Array.ConvertAll(reward.Unlocked,id => session.Characters.Get(id).Name));
-                Label(new Rect(x + 40,y + 397,500,46),unlocked,body,reward.Unlocked.Length > 0 ? green : muted);
-                var account = session.Account;
-                Bar(new Rect(x + 40,y + 450,500,9),account.XpNeeded == 0 ? 1 : (float)account.XpInLevel / account.XpNeeded,green);
+            string subtitle = won ? (lastStanding ? "Every other home fell." : "Your home held on.") : lastStanding ? winner + " was the last one standing." : m.Phase == MatchPhase.Victory ? "The remaining homes defeated the storm." : "The storm claimed every home.";
+            HudTheme.Text(Cut.Top(ref inner,40,G),subtitle,HudTheme.Body,HudTheme.Muted);
+            var buttons = Cut.Row(Cut.Bottom(ref inner,Touch,G),2,G);
+            if (HudTheme.Button(buttons[0],"PLAY AGAIN",ButtonKind.Play,true,false,HudTheme.Body)) { if (session.PracticeRanked) session.PlayRanked(); else session.Play(); }
+            if (HudTheme.Button(buttons[1],"HOME",ButtonKind.Secondary,true,false,HudTheme.Body)) session.ReturnToTitle();
+            string[] names = { "Placement","Survival time","Boss damage","Gold earned","Upgrades" };
+            string[] values = { "#" + p.Placement + " of 6",HudTheme.Clock(p.SurvivalSeconds),HudTheme.Number(p.DamageDealt),HudTheme.Number(p.GoldEarned),p.UpgradesPurchased.ToString() };
+            for (int i = 0; i < names.Length; i++) {
+                var row = Cut.Top(ref inner,40,4);
+                HudTheme.Text(row,names[i],HudTheme.Body,HudTheme.Muted); HudTheme.Text(row,values[i],HudTheme.Body,HudTheme.Ink,true,TextAnchor.MiddleRight);
             }
-            if (session.PracticeRanked) Label(new Rect(x + 40,y + 462,500,21),"PRACTICE RANKED / " + session.Account.Rank.CurrentRank + " / " + session.Account.Rank.Stars + " stars",small,cream);
-            if (Button(new Rect(x + 40,y + 485,500,55),"PLAY AGAIN",gold)) { if (session.PracticeRanked) session.PlayRanked(); else session.Play(); }
-            if (Button(new Rect(x + 40,y + 555,500,36),"CHARACTER SELECTION",new Color(0.65f,0.75f,0.87f))) session.ReturnToTitle();
+            Cut.Top(ref inner,8);
+            var reward = session.LastReward;
+            if (reward != null) {
+                var xpRow = Cut.Top(ref inner,44,6);
+                HudTheme.Text(xpRow,"+" + HudTheme.Number(reward.Xp) + " XP",HudTheme.CardTitle,HudTheme.Gold,true);
+                HudTheme.Text(xpRow,"Level " + reward.NewLevel,HudTheme.Body,HudTheme.Ink,true,TextAnchor.MiddleRight);
+                var account = session.Account;
+                HudTheme.Bar(Cut.Top(ref inner,14,8),account.XpNeeded == 0 ? 1 : (float)account.XpInLevel / account.XpNeeded,HudTheme.Good);
+                if (reward.Unlocked.Length > 0) HudTheme.Text(Cut.Top(ref inner,30,4),"Unlocked: " + string.Join(", ",System.Array.ConvertAll(reward.Unlocked,id => session.Characters.Get(id).Name)),HudTheme.Label,HudTheme.Good,true);
+            }
+            if (session.PracticeRanked) HudTheme.Text(Cut.Top(ref inner,30,4),"Practice ranked  ·  " + session.Account.Rank.CurrentRank + "  ·  " + session.Account.Rank.Stars + " / 5 stars",HudTheme.Label,HudTheme.Muted);
+            if (session.SaveDirty) HudTheme.Text(Cut.Top(ref inner,30,4),session.SaveStatus,HudTheme.Label,HudTheme.Bad);
         }
-        private void Overlay() { Color old = GUI.color; GUI.color = new Color(0.015f,0.025f,0.06f,0.75f); GUI.DrawTexture(new Rect(0,0,width,height),Texture2D.whiteTexture); GUI.color = old; }
-        private void Box(Rect r, Color color)
+
+        // ---------- Shared helpers ----------
+        private void Overlay() { HudTheme.Fill(new Rect(0,0,width,height),HudTheme.Hex(0x070A14,.72f)); }
+        private static bool Hit(Rect r,string name) { HudAudit.Interactive(r,name); return GUI.Button(r,GUIContent.none,GUIStyle.none); }
+        private void Portrait(Rect rect,string skinId,bool face) { session.Arena.Portraits.Draw(rect,skinId,face); }
+        private void MenuBackground()
         {
-            GUI.DrawTexture(r,Texture2D.whiteTexture,ScaleMode.StretchToFill,true,0,color,0,10);
+            MenuArtwork.Background(new Rect(0,0,width,height));
+            HudTheme.Fill(new Rect(0,0,width,height),HudTheme.Hex(0x0B1020,.62f));
+            HudLayout.Clear();
         }
-        private void Label(Rect r, string text, GUIStyle style, Color color)
-        { Color old = GUI.color; GUI.color = color; GUI.Label(r,text,style); GUI.color = old; }
-        private bool Button(Rect r, string text, Color color, bool enabled = true)
+        // Header panel shared by the menu screens: title plus an optional one-line note and a right-side stat.
+        private Rect Header(ref Rect area,string title,string note,string stat = null,string statNote = null)
         {
-            bool oldEnabled = GUI.enabled; Color oldColor = GUI.backgroundColor;
-            GUI.enabled = oldEnabled && enabled; GUI.backgroundColor = GUI.enabled ? color : new Color(0.35f,0.4f,0.48f);
-            bool clicked = GUI.Button(r,text,button); GUI.backgroundColor = oldColor; GUI.enabled = oldEnabled; return clicked;
+            var header = Cut.Top(ref area,136,G); HudTheme.Panel(header); var inner = Cut.Inset(header,22);
+            if (stat != null) {
+                var right = Cut.Right(ref inner,420,G);
+                HudTheme.Text(Cut.Top(ref right,44),stat,HudTheme.CardTitle,HudTheme.Gold,true,TextAnchor.MiddleRight);
+                HudTheme.Text(right,statNote,HudTheme.Label,HudTheme.Muted,false,TextAnchor.MiddleRight);
+            }
+            HudTheme.Text(Cut.Top(ref inner,note == null ? inner.height : 64),title,HudTheme.Title,HudTheme.Ink,true);
+            if (note != null) HudTheme.Text(inner,note,HudTheme.Label,HudTheme.Muted);
+            return header;
         }
-        private void Bar(Rect r, float ratio, Color color)
-        {
-            Box(r,new Color(0.02f,0.04f,0.08f));
-            if (ratio > 0) Box(new Rect(r.x,r.y,r.width * Mathf.Clamp01(ratio),r.height),color);
-        }
-        private static string Clock(float seconds) { int s = Mathf.FloorToInt(seconds); return (s / 60).ToString("00") + ":" + (s % 60).ToString("00"); }
-        private void OnDestroy() { if (rounded != null) Destroy(rounded); if (stickerIcons != null) stickerIcons.Dispose(); }
+        private void OnDestroy() { if (stickerIcons != null) stickerIcons.Dispose(); }
     }
 }

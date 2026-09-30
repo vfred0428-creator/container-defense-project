@@ -16,152 +16,152 @@ MonoBehaviour:
     MapId: container_neighborhood_v1
     HouseSpawns:
     - Id: 0
-      X: -11
-      Z: 12
+      X: -16.5
+      Z: 8
       ColorIndex: 0
     - Id: 1
-      X: 0
-      Z: 12
+      X: -5.5
+      Z: 8
       ColorIndex: 1
     - Id: 2
-      X: 11
-      Z: 12
+      X: 5.5
+      Z: 8
       ColorIndex: 2
     - Id: 3
-      X: -11
-      Z: 4
+      X: 16.5
+      Z: 8
       ColorIndex: 3
     - Id: 4
-      X: 0
-      Z: 4
+      X: -16.5
+      Z: 0
       ColorIndex: 4
     - Id: 5
-      X: 11
-      Z: 4
+      X: -5.5
+      Z: 0
       ColorIndex: 5
     - Id: 6
-      X: -11
-      Z: -4
+      X: 5.5
+      Z: 0
       ColorIndex: 2
     - Id: 7
-      X: -1.5
-      Z: -4.5
+      X: 16.5
+      Z: 0
       ColorIndex: 0
     - Id: 8
-      X: 11
-      Z: -4
+      X: -16.5
+      Z: -8
       ColorIndex: 1
     - Id: 9
-      X: -11
-      Z: -12
+      X: -5.5
+      Z: -8
       ColorIndex: 3
     - Id: 10
-      X: 0
-      Z: -12
-      ColorIndex: 4
+      X: 5.5
+      Z: -8
+      ColorIndex: 5
     - Id: 11
-      X: 11
-      Z: -12
-      ColorIndex: 2
+      X: 16.5
+      Z: -8
+      ColorIndex: 4
     Nodes:
     - Id: 0
-      X: -16.5
-      Z: 16
+      X: -22
+      Z: 12
     - Id: 1
-      X: -5.5
-      Z: 16
+      X: -11
+      Z: 12
     - Id: 2
-      X: 5.5
-      Z: 16
+      X: 0
+      Z: 12
     - Id: 3
-      X: 16.5
-      Z: 16
+      X: 11
+      Z: 12
     - Id: 4
-      X: -16.5
-      Z: 8
+      X: 22
+      Z: 12
     - Id: 5
-      X: -5.5
-      Z: 8
+      X: -22
+      Z: 4
     - Id: 6
-      X: 5.5
-      Z: 8
+      X: -11
+      Z: 4
     - Id: 7
-      X: 16.5
-      Z: 8
+      X: 0
+      Z: 4
     - Id: 8
-      X: -16.5
-      Z: 0
+      X: 11
+      Z: 4
     - Id: 9
-      X: -5.5
-      Z: 0
+      X: 22
+      Z: 4
     - Id: 10
-      X: 5.5
-      Z: 0
+      X: -22
+      Z: -4
     - Id: 11
-      X: 16.5
-      Z: 0
+      X: -11
+      Z: -4
     - Id: 12
-      X: -16.5
-      Z: -8
+      X: 0
+      Z: -4
     - Id: 13
-      X: -5.5
-      Z: -8
+      X: 11
+      Z: -4
     - Id: 14
-      X: 5.5
-      Z: -8
+      X: 22
+      Z: -4
     - Id: 15
-      X: 16.5
-      Z: -8
+      X: -22
+      Z: -12
     - Id: 16
-      X: -16.5
-      Z: -16
+      X: -11
+      Z: -12
     - Id: 17
-      X: -5.5
-      Z: -16
+      X: 0
+      Z: -12
     - Id: 18
-      X: 5.5
-      Z: -16
+      X: 11
+      Z: -12
     - Id: 19
-      X: 16.5
-      Z: -16
-    EntryNodes: 00000000010000000200000003000000070000000b0000000f000000130000001200000011000000100000000c0000000800000004000000
+      X: 22
+      Z: -12
+    EntryNodes: 0000000001000000020000000300000004000000090000000e000000130000001200000011000000100000000f0000000a00000005000000
     Routes:
-    - RouteId: east_straight
+    - RouteId: middle_straight
       Kind: 0
-      NodeSequence: 03000000070000000b0000000f00000013000000
+      NodeSequence: 0500000006000000070000000800000009000000
       TelegraphTime: 4
       MinimumWave: 1
       MaximumWave: 999
       Weight: 1
     - RouteId: west_sweep
       Kind: 1
-      NodeSequence: 0000000004000000080000000c00000010000000110000001200000013000000
+      NodeSequence: 00000000050000000a0000000f00000010000000110000001200000013000000
       TelegraphTime: 4
       MinimumWave: 1
       MaximumWave: 999
       Weight: 1
     - RouteId: zig_zag
       Kind: 2
-      NodeSequence: 000000000100000002000000030000000700000006000000050000000400000008000000090000000a0000000b0000000f0000000e0000000d0000000c000000
+      NodeSequence: 000000000100000002000000030000000400000009000000080000000700000006000000050000000a0000000b0000000c0000000d0000000e000000130000001200000011000000100000000f000000
       TelegraphTime: 4
       MinimumWave: 1
       MaximumWave: 999
       Weight: 1
     - RouteId: north_cluster
       Kind: 3
-      NodeSequence: 0000000001000000020000000300000007000000060000000500000004000000
+      NodeSequence: 00000000010000000200000003000000040000000900000008000000070000000600000005000000
       TelegraphTime: 4
       MinimumWave: 1
       MaximumWave: 999
       Weight: 1
     - RouteId: outer_loop
       Kind: 4
-      NodeSequence: 00000000010000000200000003000000070000000b0000000f000000130000001200000011000000100000000c000000080000000400000000000000
+      NodeSequence: 0000000001000000020000000300000004000000090000000e000000130000001200000011000000100000000f0000000a0000000500000000000000
       TelegraphTime: 4
       MinimumWave: 1
       MaximumWave: 999
       Weight: 1
-    MinX: -18
-    MaxX: 18
-    MinZ: -18
-    MaxZ: 18
+    MinX: -24
+    MaxX: 24
+    MinZ: -14
+    MaxZ: 14

@@ -12,62 +12,67 @@ namespace ContainerDefense
         public void CloseRanked() { rankedOpen = false; }
         private void RankedScreen()
         {
-            MenuArtwork.Background(new Rect(0,0,width,height)); Overlay();
-            var rank = session.Account.Rank;
-            Box(new Rect(24,24,width - 48,108),panel);
-            Label(new Rect(48,40,900,55),leaderboardOpen ? "LOCAL LEADERBOARDS" : "PRACTICE RANKED",title,cream);
-            Label(new Rect(48,99,width - 100,24),"Season " + rank.Season + "  /  Local prototype. Bot matches and device-only records; online rankings are not connected.",small,muted);
-            if (Button(new Rect(24,150,210,48),"<  HOME",muted)) rankedOpen = false;
-            if (Button(new Rect(250,150,250,48),"YOUR RANK",!leaderboardOpen ? gold : muted)) leaderboardOpen = false;
-            if (Button(new Rect(516,150,270,48),"LEADERBOARDS",leaderboardOpen ? gold : muted)) leaderboardOpen = true;
-            if (leaderboardOpen) LeaderboardPanel(); else RankPanel(rank);
+            MenuBackground();
+            var rank = session.Account.Rank; var area = Cut.Inset(safe,M);
+            Header(ref area,leaderboardOpen ? "LEADERBOARDS" : "PRACTICE RANKED","Season " + rank.Season + "  ·  bot matches and device-only records");
+            var tabs = Cut.Top(ref area,Touch,G);
+            if (HudTheme.Button(Cut.Left(ref tabs,200,G),"HOME",ButtonKind.Secondary,true,false,HudTheme.Body)) rankedOpen = false;
+            if (HudTheme.Button(Cut.Left(ref tabs,260,G),"YOUR RANK",ButtonKind.Secondary,true,!leaderboardOpen,HudTheme.Body)) leaderboardOpen = false;
+            if (HudTheme.Button(Cut.Left(ref tabs,300,G),"LEADERBOARDS",ButtonKind.Secondary,true,leaderboardOpen,HudTheme.Body)) leaderboardOpen = true;
+            if (leaderboardOpen) LeaderboardPanel(area); else RankPanel(area,rank);
         }
-        private void RankPanel(RankData rank)
+        private void RankPanel(Rect area,RankData rank)
         {
-            Box(new Rect(24,222,424,height - 340),panel);
-            Portrait(new Rect(110,244,252,252),session.Inventory.Equipped(session.Account.Selected),true);
-            Label(new Rect(56,520,360,60),rank.CurrentRank.ToString(),title,gold);
-            Label(new Rect(56,592,360,36),rank.Stars + " / " + RankProgression.StarsPerRank + " STARS",heading,cream);
-            Bar(new Rect(56,644,360,14),(float)rank.Stars / RankProgression.StarsPerRank,gold);
-            Label(new Rect(56,684,360,60),"Highest: " + rank.HighestRank + "\n" + rank.Wins + " wins / " + rank.MatchesPlayed + " practice matches",body,muted);
-            Box(new Rect(468,222,width - 492,height - 340),panel);
-            Label(new Rect(496,248,width - 548,40),"SURVIVE IN YOUR OWN HOUSE",heading,cream);
-            Label(new Rect(496,310,width - 548,170),"Survive the boss defeat: +1 star.\nEliminated or defeated: −1 star, down to zero.\nFive stars promote you; reached tiers are protected.\nSovereign holds up to five stars.",body,cream);
-            Label(new Rect(496,488,width - 548,40),"THE RANK JOURNEY",heading,gold);
-            for (int i = 0; i < 8; i++)
-            {
-                float x = 496 + i % 4 * ((width - 568) / 4), y = 552 + i / 4 * 70;
-                Label(new Rect(x,y,(width - 568) / 4 - 8,48),((RankTier)i).ToString(),body,i <= (int)rank.HighestRank ? cream : muted);
+            var play = Cut.Bottom(ref area,Touch,G);
+            if (HudTheme.Button(Cut.Right(ref play,Mathf.Min(520,play.width * .45f),G),"PLAY PRACTICE RANKED",ButtonKind.Play,true,false,HudTheme.Body)) { rankedOpen = false; session.PlayRanked(); }
+            HudTheme.Text(play,"Solo survival. Casual PLAY never changes your rank.",HudTheme.Body,HudTheme.Muted);
+            var left = Cut.Left(ref area,Mathf.Min(460,area.width * .34f),G);
+            HudTheme.Panel(left); var l = Cut.Inset(left,28);
+            float art = Mathf.Min(l.width,l.height - 190);
+            Portrait(Cut.Center(Cut.Top(ref l,art,G),art,art),session.Inventory.Equipped(session.Account.Selected),true);
+            HudTheme.Text(Cut.Top(ref l,68),rank.CurrentRank.ToString(),HudTheme.Title,HudTheme.Gold,true);
+            // Five star pips, filled to the current star count.
+            var pips = Cut.Row(Cut.Top(ref l,28,G),RankProgression.StarsPerRank,10);
+            for (int i = 0; i < pips.Length; i++) HudTheme.Fill(pips[i],i < rank.Stars ? HudTheme.Gold : HudTheme.BarBack,8);
+            HudTheme.Text(l,"Best " + rank.HighestRank + "  ·  " + rank.Wins + " wins in " + rank.MatchesPlayed,HudTheme.Label,HudTheme.Muted);
+            HudTheme.Panel(area); var r = Cut.Inset(area,28);
+            HudTheme.Text(Cut.Top(ref r,44,8),"HOW STARS WORK",HudTheme.CardTitle,HudTheme.Ink,true);
+            HudTheme.Text(Cut.Top(ref r,4 * 38,G),"Win the match in your own house: +1 star.\nEliminated or defeated: -1 star, never below zero.\nFive stars promote you; reached tiers are protected.\nSovereign holds up to five stars.",HudTheme.Body,HudTheme.Ink,false,TextAnchor.UpperLeft,true);
+            HudTheme.Text(Cut.Top(ref r,44,8),"RANK JOURNEY",HudTheme.CardTitle,HudTheme.Gold,true);
+            var grid = Cut.Top(ref r,Mathf.Min(r.height,2 * 72 + G));
+            var rows = Cut.Column(grid,2,G);
+            for (int i = 0; i < 8; i++) {
+                var chip = Cut.Row(rows[i / 4],4,G)[i % 4];
+                bool reached = i <= (int)rank.HighestRank, current = i == (int)rank.CurrentRank;
+                HudTheme.Card(chip); if (current) HudTheme.Ring(chip);
+                HudTheme.Text(Cut.Inset(chip,10),((RankTier)i).ToString(),HudTheme.Body,reached ? HudTheme.Ink : HudTheme.Muted,reached,TextAnchor.MiddleCenter);
             }
-            Label(new Rect(496,714,width - 548,52),"Casual PLAY leaves your rank unchanged. Account levels and cosmetics never reset with rank.",small,muted);
-            if (Button(new Rect(width - 492,height - 94,468,64),"PLAY PRACTICE RANKED  >",gold)) { rankedOpen = false; session.PlayRanked(); }
-            Label(new Rect(40,height - 83,width - 580,50),"Solo survival. Six independent residents. No shared houses or buffs.",small,cream);
         }
-        private void LeaderboardPanel()
+        private void LeaderboardPanel(Rect area)
         {
             string[] labels = { "RANKED", "CHARISMA", "POPULARITY" };
-            for (int i = 0; i < 3; i++) if (Button(new Rect(24 + i * 266,220,250,46),labels[i],boardKind == (LeaderboardKind)i ? gold : muted)) boardKind = (LeaderboardKind)i;
-            Box(new Rect(24,286,width - 48,height - 354),panel);
-            Label(new Rect(48,306,60,30),"#",body,muted);
-            Label(new Rect(166,306,440,30),"PLAYER",body,muted);
-            Label(new Rect(width - 570,306,260,30),boardKind == LeaderboardKind.Ranked ? "RANK" : "COLLECTION",body,muted);
-            Label(new Rect(width - 272,306,220,30),boardKind == LeaderboardKind.Ranked ? "STARS" : labels[(int)boardKind],body,muted);
+            var tabs = Cut.Row(Cut.Top(ref area,Touch,G),3,G);
+            for (int i = 0; i < 3; i++) if (HudTheme.Button(tabs[i],labels[i],ButtonKind.Secondary,true,boardKind == (LeaderboardKind)i,HudTheme.Body)) boardKind = (LeaderboardKind)i;
+            HudTheme.Panel(area); var inner = Cut.Inset(area,24);
+            HudTheme.Text(Cut.Bottom(ref inner,64,G),boardKind == LeaderboardKind.Ranked ?
+                "Only your account has rank data on this device. Other players appear once online play exists." :
+                "Scores come from saved collections and gift receipts on this device.",HudTheme.Label,HudTheme.Muted,false,TextAnchor.UpperLeft,true);
+            var head = Cut.Top(ref inner,36,8); var h = Cut.Inset(head,0);
+            HudTheme.Text(Cut.Left(ref h,80),"#",HudTheme.Label,HudTheme.Muted,true);
+            HudTheme.Text(Cut.Right(ref h,220),boardKind == LeaderboardKind.Ranked ? "STARS" : labels[(int)boardKind],HudTheme.Label,HudTheme.Muted,true,TextAnchor.MiddleRight);
+            HudTheme.Text(Cut.Right(ref h,300,G),boardKind == LeaderboardKind.Ranked ? "RANK" : "ITEMS",HudTheme.Label,HudTheme.Muted,true);
+            HudTheme.Text(h,"PLAYER",HudTheme.Label,HudTheme.Muted,true);
             var rows = session.Leaderboards.Get(boardKind);
-            for (int i = 0; i < rows.Length; i++)
-            {
-                var row = rows[i]; float y = 350 + i * 84;
-                Box(new Rect(40,y,width - 80,76),row.IsYou ? new Color(.19f,.23f,.32f) : new Color(.1f,.14f,.23f));
-                Label(new Rect(56,y + 24,58,36),(i + 1).ToString(),heading,i < 3 ? gold : cream);
-                if (row.IsYou) Portrait(new Rect(102,y + 6,66,64),session.Inventory.Equipped(session.Account.Selected),true);
-                else { Box(new Rect(114,y + 18,42,42),new Color(.35f,.39f,.49f)); Label(new Rect(124,y + 24,30,32),"P",heading,cream); }
-                Label(new Rect(186,y + 12,460,36),row.Username + (row.IsYou ? "  / YOU" : ""),heading,cream);
-                Label(new Rect(186,y + 47,460,24),row.IsYou ? "Your device account" : "Local practice inbox",small,muted);
-                Label(new Rect(width - 570,y + 24,260,42),boardKind == LeaderboardKind.Ranked ? row.Rank.CurrentRank.ToString() : row.CollectionCount + " items / types",body,cream);
-                Label(new Rect(width - 272,y + 24,220,42),boardKind == LeaderboardKind.Ranked ? row.Rank.Stars + " / 5" : row.Score.ToString("N0"),row.Score > 999999999999L ? small : heading,gold);
+            for (int i = 0; i < rows.Length && inner.height >= 88; i++) {
+                var row = rows[i]; var r = Cut.Top(ref inner,88,8);
+                HudTheme.Card(r); if (row.IsYou) HudTheme.Ring(r); var c = Cut.Inset(r,12);
+                HudTheme.Text(Cut.Left(ref c,68),(i + 1).ToString(),HudTheme.CardTitle,i < 3 ? HudTheme.Gold : HudTheme.Ink,true);
+                var face = Cut.Left(ref c,64,G);
+                if (row.IsYou) Portrait(face,session.Inventory.Equipped(session.Account.Selected),true); else HudTheme.Fill(face,HudTheme.SecondaryFill,12);
+                HudTheme.Text(Cut.Right(ref c,220),boardKind == LeaderboardKind.Ranked ? row.Rank.Stars + " / 5" : HudTheme.Number(row.Score),HudTheme.CardTitle,HudTheme.Gold,true,TextAnchor.MiddleRight);
+                HudTheme.Text(Cut.Right(ref c,300,G),boardKind == LeaderboardKind.Ranked ? row.Rank.CurrentRank.ToString() : row.CollectionCount + " items",HudTheme.Body,HudTheme.Ink);
+                HudTheme.Text(c,row.Username + (row.IsYou ? "  (you)" : ""),HudTheme.Body,HudTheme.Ink,true);
             }
-            Label(new Rect(48,height - 170,width - 96,82),boardKind == LeaderboardKind.Ranked ?
-                "Only your account has recorded rank data on this device. Other players will appear when an online service is connected." :
-                "Scores come from saved local collections and gift receipts. Charisma counts unique owned items; Popularity counts gift value received.",body,muted);
         }
     }
 }

@@ -8,55 +8,60 @@ namespace ContainerDefense
         private static readonly string[] passiveNames = { "+8% gold", "+15% door HP", "+10% damage", "12% faster income", "+12% move speed", "8% half-cost chance", "+10% build speed" };
         private void TitleScreen()
         {
-            var account = session.Account;
-            Box(new Rect(24,24,300,102),panel);
-            Label(new Rect(44,32,270,43),"CONTAINER",brand,cream);
-            Label(new Rect(44,72,270,43),"DEFENSE",brand,gold);
-            Box(new Rect(344,24,440,88),panel);
-            Portrait(new Rect(352,30,76,72),session.Inventory.Equipped(account.Selected),true);
-            Label(new Rect(444,36,310,30),"Lv. " + account.Level + "   " + account.Social.Profile.Username,body,cream);
-            Label(new Rect(444,72,290,24),account.XpInLevel + " / " + account.XpNeeded + " XP",small,muted);
-            Bar(new Rect(444,101,310,5),account.XpNeeded == 0 ? 1 : (float)account.XpInLevel / account.XpNeeded,new Color(.25f,.62f,1));
-            if (GUI.Button(new Rect(344,24,440,88),GUIContent.none,GUIStyle.none)) OpenSocial(0);
-            Box(new Rect(804,24,220,88),panel);
-            Label(new Rect(824,38,180,30),account.Rank.CurrentRank.ToString(),heading,cream);
-            Label(new Rect(824,78,180,22),account.Rank.Stars + " / 5 stars",small,gold);
-            if (GUI.Button(new Rect(804,24,220,88),GUIContent.none,GUIStyle.none)) OpenRanked();
-            Box(new Rect(width - 328,24,304,88),panel);
-            Label(new Rect(width - 308,38,266,28),session.Inventory.Charisma.ToString("N0") + "  CHARISMA",heading,gold);
+            MenuBackground();
+            var account = session.Account; var area = Cut.Inset(safe,M);
+            // Top row: brand, profile, rank, charisma. Cards are fixed widths; spare width is margin.
+            var top = Cut.Top(ref area,120,24);
+            var charisma = Cut.Right(ref top,300,G); var rank = Cut.Right(ref top,280,G); var profile = Cut.Right(ref top,Mathf.Min(480,top.width * .55f),G);
+            HudTheme.Text(top,"CONTAINER DEFENSE",HudTheme.Title,HudTheme.Gold,true);
+            HudTheme.Panel(profile); var p = Cut.Inset(profile,12);
+            Portrait(Cut.Left(ref p,96,G),session.Inventory.Equipped(account.Selected),true);
+            HudTheme.Text(Cut.Top(ref p,40),account.Social.Profile.Username,HudTheme.Body,HudTheme.Ink,true);
+            HudTheme.Text(Cut.Top(ref p,30,6),"Level " + account.Level + "  ·  " + HudTheme.Number(account.XpInLevel) + " / " + HudTheme.Number(account.XpNeeded) + " XP",HudTheme.Label,HudTheme.Muted);
+            HudTheme.Bar(Cut.Top(ref p,10),account.XpNeeded == 0 ? 1 : (float)account.XpInLevel / account.XpNeeded,HudTheme.Info);
+            if (Hit(profile,"Profile")) OpenSocial(0);
+            HudTheme.Panel(rank); var rr = Cut.Inset(rank,18);
+            HudTheme.Text(Cut.Top(ref rr,44),account.Rank.CurrentRank.ToString(),HudTheme.CardTitle,HudTheme.Ink,true);
+            HudTheme.Text(rr,account.Rank.Stars + " / 5 stars",HudTheme.Label,HudTheme.Gold,true);
+            if (Hit(rank,"Rank")) OpenRanked();
+            HudTheme.Panel(charisma); var cr = Cut.Inset(charisma,18);
+            HudTheme.Text(Cut.Top(ref cr,44),HudTheme.Number(session.Inventory.Charisma) + " Charisma",HudTheme.CardTitle,HudTheme.Gold,true);
             int unread = SocialState.Unread(account.Social);
-            if (Button(new Rect(width - 308,74,264,28),unread > 0 ? "GIFT INBOX (" + unread + ")" : "PROFILE & GIFTS",muted)) OpenSocial(unread > 0 ? 2 : 0);
-            float step = (width - 48) / 7, y = height - 425;
-            for (int i = 0; i < 7; i++)
-            {
-                var d = session.Characters.Get((CharacterId)i);
+            HudTheme.Text(cr,unread > 0 ? unread + " new gifts" : "Profile and gifts",HudTheme.Label,unread > 0 ? HudTheme.Good : HudTheme.Muted,true);
+            if (Hit(charisma,"Gifts")) OpenSocial(unread > 0 ? 2 : 0);
+            // Bottom navigation.
+            var nav = Cut.Bottom(ref area,Touch,24);
+            if (HudTheme.Button(Cut.Right(ref nav,Mathf.Min(440,nav.width * .3f),24),"PLAY",ButtonKind.Play,true,false,HudTheme.CardTitle)) session.Play();
+            var navButtons = Cut.Row(Cut.Left(ref nav,Mathf.Min(nav.width,4 * 260 + 3 * G)),4,G);
+            if (HudTheme.Button(navButtons[0],"RANKED",ButtonKind.Secondary,true,false,HudTheme.Body)) OpenRanked();
+            if (HudTheme.Button(navButtons[1],"LEADERBOARD",ButtonKind.Secondary)) OpenLeaderboards(LeaderboardKind.Ranked);
+            if (HudTheme.Button(navButtons[2],"STICKERS",ButtonKind.Secondary,true,false,HudTheme.Body)) ShowStickers();
+            if (HudTheme.Button(navButtons[3],"COLLECTION",ButtonKind.Secondary)) OpenCollection(account.Selected);
+            // Notice slot above the navigation: locked-character info or a save problem.
+            var notice = Cut.Bottom(ref area,56,G);
+            string message = session.SaveDirty ? session.SaveStatus : !account.IsUnlocked(inspected) ? session.Characters.Get(inspected).Name + " unlocks at level " + session.Characters.Get(inspected).UnlockLevel + "  ·  " + passiveNames[(int)inspected] : null;
+            if (message != null) {
+                var size = HudTheme.TextStyle(HudTheme.Label,true,TextAnchor.MiddleCenter,false).CalcSize(new GUIContent(message));
+                var pill = Cut.Center(notice,Mathf.Min(notice.width,size.x + 64),56);
+                HudTheme.Panel(pill,false); HudTheme.Text(Cut.Inset(pill,12),message,HudTheme.Label,session.SaveDirty ? HudTheme.Bad : HudTheme.Gold,true,TextAnchor.MiddleCenter);
+            }
+            // Roster: seven cards, portraits kept inside their cards.
+            float cardWidth = Mathf.Min(260,(area.width - 6 * G) / 7), cardHeight = Mathf.Min(area.height,cardWidth + 150);
+            var row = Cut.Center(area,cardWidth * 7 + 6 * G,cardHeight);
+            var cards = Cut.Row(row,7,G);
+            for (int i = 0; i < 7; i++) {
+                var d = session.Characters.Get((CharacterId)i); var card = cards[i];
                 bool unlocked = account.IsUnlocked(d.Id), selected = account.Selected == d.Id;
-                Rect hit = new Rect(24 + i * step,y,step - 8,310);
-                if (selected) Box(new Rect(hit.x + 18,y + 195,hit.width - 36,5),gold);
-                Portrait(new Rect(hit.x - 3,y,hit.width + 6,214),session.Collections.DefaultSkin(d.Id),false);
-                Box(new Rect(hit.x,y + 202,hit.width,108),panel);
-                Label(new Rect(hit.x + 12,y + 208,hit.width - 24,30),d.Name,heading,selected ? gold : cream);
-                Label(new Rect(hit.x + 12,y + 245,hit.width - 24,25),passiveNames[i],small,cream);
-                Label(new Rect(hit.x + 12,y + 276,hit.width - 24,25),!unlocked ? "LOCKED / Level " + d.UnlockLevel : selected ? "SELECTED" : "SELECT",small,selected ? gold : muted);
-                if (GUI.Button(hit,GUIContent.none,GUIStyle.none))
-                { inspected = d.Id; if (unlocked) session.SelectCharacter(d.Id); }
+                HudTheme.Panel(card,false); if (selected) HudTheme.Ring(card);
+                var inner = Cut.Inset(card,12);
+                var art = Cut.Top(ref inner,inner.width,8);
+                var old = GUI.color; if (!unlocked) GUI.color = new Color(.45f,.47f,.55f,1);
+                Portrait(art,session.Collections.DefaultSkin(d.Id),false); GUI.color = old;
+                HudTheme.Text(Cut.Top(ref inner,42),d.Name,HudTheme.CardTitle,selected ? HudTheme.Gold : HudTheme.Ink,true);
+                HudTheme.Text(Cut.Top(ref inner,30),passiveNames[i],HudTheme.Label,HudTheme.Ink);
+                HudTheme.Text(inner,!unlocked ? "Level " + d.UnlockLevel : selected ? "Selected" : "Tap to select",HudTheme.Label,selected ? HudTheme.Gold : HudTheme.Muted,true);
+                if (Hit(card,"Character " + d.Name)) { inspected = d.Id; if (unlocked) session.SelectCharacter(d.Id); }
             }
-            if (!account.IsUnlocked(inspected))
-            {
-                var locked = session.Characters.Get(inspected);
-                Box(new Rect(width / 2 - 310,136,620,48),panel);
-                Label(new Rect(width / 2 - 290,148,580,26),locked.Name + ": reach Account Level " + locked.UnlockLevel + "  /  " + passiveNames[(int)inspected],body,cream);
-            }
-            float navY = height - 88;
-            float navWidth = (width - 436) / 4;
-            if (Button(new Rect(24,navY,navWidth,64),"RANKED",new Color(.7f,.64f,.96f))) OpenRanked();
-            if (Button(new Rect(36 + navWidth,navY,navWidth,64),"LEADERBOARD",new Color(.58f,.68f,.97f))) OpenLeaderboards(LeaderboardKind.Ranked);
-            if (Button(new Rect(48 + navWidth * 2,navY,navWidth,64),"STICKERS",new Color(1,.52f,.71f))) ShowStickers();
-            if (Button(new Rect(60 + navWidth * 3,navY,navWidth,64),"INVENTORY",new Color(.4f,.85f,.78f))) OpenCollection(account.Selected);
-            if (Button(new Rect(width - 364,navY,340,64),"PLAY  >",gold)) session.Play();
-            if (session.SaveDirty) Label(new Rect(24,131,width - 48,26),session.SaveStatus,small,red);
         }
-        private void Portrait(Rect rect,string skinId,bool face)
-        { session.Arena.Portraits.Draw(rect,skinId,face); }
     }
 }

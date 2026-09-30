@@ -2,132 +2,117 @@ using ContainerDefense.Domain;
 using UnityEngine;
 namespace ContainerDefense
 {
+    // Bottom house panel: at most 30% of the screen. Your house (or the one you are viewing) with its
+    // three rooftop sockets as large cards that never scroll. Viewing other houses is read-only.
     public sealed partial class MatchHud
     {
-        private bool buildOpen;
-        private int buildSlot;
-        private int movingSlot = -1;
-        public void ShowBuildBoard(bool visible) { buildOpen = visible; movingSlot = -1; buildSlot = 0; }
-        private void MapControls()
+        private int selectedSlot = -1, movingSlot = -1;
+        private bool picking;
+        public void ShowBuildBoard(bool visible) { selectedSlot = visible ? 0 : -1; movingSlot = -1; picking = false; }
+        private void HouseBoard(Rect panel)
         {
-            var m = session.Match; var p = m.Players[0]; float scale = Screen.width / width;
-            if (p.HouseId < 0 && !p.Eliminated && !session.Scouting && m.Phase == MatchPhase.Preparation && !session.Paused) {
-                foreach (var h in m.Houses) {
-                    if (h.OwnerId >= 0) continue;
-                    Vector2 point = session.Arena.ScreenPoint(h.Center) / scale;
-                    float pixel = Screen.height / (session.Arena.Camera.orthographicSize * 2) / scale;
-                    var rect = new Rect(point.x - pixel * 4,point.y - pixel * 2.5f,pixel * 8,pixel * 5);
-                    if (point.y > 148 && point.y < height - 172 && GUI.Button(rect,GUIContent.none,GUIStyle.none)) session.WalkToHouse(h.Id);
-                }
-            }
-            var viewed = m.Players[session.ViewedPlayer];
-            if (viewed.HouseId >= 0 && !session.Overview && buildOpen) {
-                var house = session.ScoutView[viewed.HouseId];
-                for (int slot = 0; slot < 3; slot++) {
-                    Vector2 point = session.Arena.ScreenPoint(m.WeaponPoint(house.HouseId,slot)) / scale;
-                    var r = new Rect(point.x - 34,point.y - 32,68,64);
-                    if (!house.Weapons[slot].Present) Box(r,new Color(.2f,.38f,.42f,.7f));
-                    if (Button(new Rect(point.x - 28,point.y + 28,56,30),(slot + 1).ToString(),buildSlot == slot ? gold : muted,!session.Scouting)) {
-                        if (movingSlot >= 0) { if (session.MoveWeapon(movingSlot,slot)) movingSlot = -1; }
-                        buildSlot = slot;
-                    }
-                }
-            }
-            if (m.Boss.Phase == BossPhase.Telegraphing && p.HouseId >= 0 && System.Array.IndexOf(m.Boss.RouteHouses,p.HouseId) >= 0) {
-                Box(new Rect(width / 2 - 236,124,472,38),panel);
-                Label(new Rect(width / 2 - 220,131,440,28),"YOUR HOUSE IS ON THE BOSS ROUTE",body,red);
-            }
+            var m = session.Match; var viewed = m.Players[session.ViewedPlayer];
+            HudTheme.Panel(panel); var inner = Cut.Inset(panel,20);
+            if (viewed.HouseId < 0) { ClaimBoard(inner,viewed); return; }
+            var h = session.ScoutView[viewed.HouseId];
+            bool own = !session.Scouting && !viewed.Eliminated && !m.Finished && !session.Paused;
+            var left = Cut.Left(ref inner,432,24);
+            HouseSummary(left,h,viewed,own);
+            if (own && picking && selectedSlot >= 0) WeaponPicker(inner,h); else Sockets(inner,h,own);
         }
-        private void MapOverviewButton()
+        private void ClaimBoard(Rect inner,PlayerState viewed)
         {
-            if (session.Paused || session.Match.Finished) return;
-            if (Button(new Rect(24,142,176,42),session.Overview ? "FOCUS HOUSE" : "VIEW MAP",muted,session.Match.Players[session.ViewedPlayer].HouseId >= 0)) session.Overview = !session.Overview;
-            if (session.Scouting) {
-                if (Button(new Rect(212,142,246,42),"RETURN TO MY HOUSE",gold,!session.Match.Players[0].Eliminated)) { session.ReturnToOwnHouse(); buildOpen = false; movingSlot = -1; }
-                if (Button(new Rect(24,196,78,38),"<",muted)) session.Scout((session.ViewedPlayer + 5) % 6);
-                if (Button(new Rect(114,196,78,38),">",muted)) session.Scout((session.ViewedPlayer + 1) % 6);
-            }
-            MiniMap();
+            var m = session.Match; bool human = viewed.Id == 0 && !viewed.Eliminated;
+            var action = Cut.Right(ref inner,420,24);
+            HudTheme.Text(Cut.Top(ref inner,48,8),viewed.Eliminated ? viewed.Name + " is out" : human ? "CHOOSE A FREE HOUSE" : viewed.Name + " has no house yet",HudTheme.CardTitle,HudTheme.Ink,true);
+            HudTheme.Text(Cut.Top(ref inner,84),human ? "Tap a free house on the map, or walk to its door and press E. Twelve houses, one owner each." : "Scouting is read-only.",HudTheme.Body,HudTheme.Muted,false,TextAnchor.UpperLeft,true);
+            if (!human) return;
+            int nearby = session.NearbyHouse(); bool free = nearby >= 0 && m.Houses[nearby].OwnerId < 0;
+            var button = Cut.Center(action,action.width,Touch);
+            if (HudTheme.Button(button,free ? "CLAIM HOUSE " + (nearby + 1).ToString("00") : "WALK TO A DOOR",ButtonKind.Play,free && m.Phase == MatchPhase.Preparation,false,HudTheme.Body)) session.Interact();
         }
-        private void MiniMap()
+        private void HouseSummary(Rect r,HouseScout h,PlayerState viewed,bool own)
         {
-            var m = session.Match; var r = new Rect(width - 216,134,192,168); Box(r,panel);
-            if (m.Boss.Phase == BossPhase.Telegraphing || m.Boss.Phase == BossPhase.Travelling) {
-                var previous = m.Boss.Position;
-                foreach (var point in m.Boss.RoutePath) {
-                    int steps = Mathf.Max(1,Mathf.CeilToInt(previous.Distance(point) * 2));
-                    for (int i = 0; i <= steps; i++) {
-                        float t = (float)i / steps;
-                        float px = Mathf.Lerp(previous.X,point.X,t), pz = Mathf.Lerp(previous.Z,point.Z,t);
-                        Box(new Rect(r.x + 95 + px * 5,r.y + 79 - pz * 4.8f,2,2),gold);
-                    }
-                    previous = point;
-                }
+            var m = session.Match;
+            var title = Cut.Top(ref r,44,8);
+            HudTheme.Text(Cut.Left(ref title,190),"HOUSE " + (h.HouseId + 1).ToString("00"),HudTheme.CardTitle,HudTheme.Ink,true);
+            string tag = own ? (viewed.Sleeping ? "+" + m.Income(h.HouseId).ToString("0.#") + " gold/s" : "Awake") : viewed.Eliminated ? "Out" : m.Players[0].Eliminated ? "Spectating " + viewed.Name : viewed.Name + " · read only";
+            HudTheme.Text(title,tag,HudTheme.Label,own && viewed.Sleeping ? HudTheme.Good : HudTheme.Muted,true,TextAnchor.MiddleRight);
+            var hp = Cut.Top(ref r,32,16);
+            HudIcons.Draw(Cut.Left(ref hp,32,8),"icon_heart");
+            HudTheme.Bar(hp,h.MaxHealth > 0 ? h.Health / h.MaxHealth : 0,own || viewed.Id == 0 ? HudTheme.Good : HudTheme.Info,HudTheme.Number(Mathf.Ceil(h.Health)) + " / " + HudTheme.Number(h.MaxHealth));
+            var buttons = Cut.Row(Cut.Top(ref r,Touch),4,G);
+            if (!own) {
+                string[] facts = { "BED\nLv " + (h.BedLevel + 1),"DOOR\nLv " + (h.DoorLevel + 1),"GOLD\n" + (h.Wealth == WealthBand.Unknown ? "-" : h.Wealth.ToString()),"" };
+                for (int i = 0; i < 3; i++) { HudTheme.Card(buttons[i]); HudTheme.Text(Cut.Inset(buttons[i],6),facts[i],HudTheme.Label,HudTheme.Muted,true,TextAnchor.MiddleCenter,true); }
+                if (m.Players[0].Eliminated && HudTheme.Button(buttons[3],"NEXT",ButtonKind.Secondary,!m.Finished)) session.CycleSpectator();
+                return;
             }
-            foreach (var h in m.Houses) {
-                float x = r.x + 96 + h.Center.X * 5, y = r.y + 80 - h.Center.Z * 4.8f;
-                Color color = h.Destroyed ? new Color(.25f,.27f,.32f) : h.OwnerId == 0 ? green : h.OwnerId < 0 ? muted : new Color(.45f,.65f,.92f);
-                if (h.Id == m.Boss.TargetHouseId) color = red;
-                if (Button(new Rect(x - 18,y - 12,36,24),(h.Id + 1).ToString("00"),color)) {
-                    if (h.OwnerId >= 0) session.Scout(h.OwnerId); else session.WalkToHouse(h.Id);
-                }
-            }
-            float bx = r.x + 96 + m.Boss.Position.X * 5, by = r.y + 80 - m.Boss.Position.Z * 4.8f;
-            Box(new Rect(bx - 4,by - 4,8,8),red);
+            var live = m.Houses[h.HouseId];
+            if (HudTheme.Button(buttons[0],viewed.Sleeping ? "WAKE" : "SLEEP",ButtonKind.Secondary)) session.Interact();
+            HouseUpgrade(buttons[1],live,UpgradeKind.Bed,"BED");
+            HouseUpgrade(buttons[2],live,UpgradeKind.Door,"DOOR");
+            bool canRepair = live.Health < live.MaxHealth && !live.IsBuilding && m.Players[0].Gold >= MatchSimulation.RepairCost;
+            if (HudTheme.Button(buttons[3],"FIX\n" + MatchSimulation.RepairCost,ButtonKind.Primary,canRepair) && !session.Repair()) session.Notify("Repair needs 40 gold and a damaged door.");
         }
-        private void HouseBoard()
+        private void HouseUpgrade(Rect r,HouseState house,UpgradeKind kind,string name)
         {
-            var m = session.Match; var p = m.Players[session.ViewedPlayer];
-            float y = height - 176;
-            Box(new Rect(24,y,width - 48,152),panel);
-            if (p.HouseId < 0) {
-                Label(new Rect(48,y + 24,width - 96,40),p.Eliminated ? "ELIMINATED / Tap a portrait to spectate" : "CHOOSE A FREE HOUSE",heading,cream);
-                Label(new Rect(48,y + 76,width - 96,46),"Tap a house to run and claim it. Or move with WASD and press E at its door. Twelve houses; one owner each.",body,muted); return;
+            int cost = session.Match.UpgradeCost(house.Id,kind);
+            if (house.IsBuilding && house.BuildingKind == kind) {
+                HudTheme.Card(r); HudTheme.Bar(new Rect(r.x + 10,r.yMax - 20,r.width - 20,8),1 - house.BuildRemaining / Mathf.Max(.01f,house.BuildDuration),HudTheme.Good);
+                HudTheme.Text(new Rect(r.x,r.y,r.width,r.height - 24),name + "\n" + house.BuildRemaining.ToString("0.0") + "s",HudTheme.Label,HudTheme.Ink,true,TextAnchor.MiddleCenter,true);
+                return;
             }
-            // Scouting reads only the read-only view: no live house objects and no other player's exact gold.
-            var h = session.ScoutView[p.HouseId]; bool own = !session.Scouting && !p.Eliminated && !m.Finished && !session.Paused;
-            Label(new Rect(48,y + 16,246,40),"HOUSE " + (h.HouseId + 1).ToString("00"),heading,cream);
-            Label(new Rect(48,y + 62,246,38),session.Scouting ? "VIEWING " + p.Name : "MY HOUSE",body,session.Scouting ? muted : gold);
-            if (session.Scouting) Label(new Rect(48,y + 108,246,28),"READ ONLY",small,muted);
-            else if (Button(new Rect(48,y + 104,246,32),p.Sleeping ? "SLEEPING / WAKE" : "SLEEP FOR GOLD",muted,own)) session.Interact();
-            float x = 324, available = width - 374, card = (available - 36) / 4;
-            Bar(new Rect(x,y + 16,available - 160,12),h.Health / h.MaxHealth,green);
-            Label(new Rect(width - 196,y + 8,146,30),Mathf.CeilToInt(h.Health) + " / " + Mathf.CeilToInt(h.MaxHealth),body,cream);
-            int bed = m.UpgradeCost(h.HouseId,UpgradeKind.Bed), door = m.UpgradeCost(h.HouseId,UpgradeKind.Door);
-            if (Button(new Rect(x,y + 48,card,80),"BED " + (h.BedLevel + 1) + "\n" + (bed < 0 ? "MAX" : bed + " gold"),green,own && bed >= 0 && !h.Building)) session.Buy(UpgradeKind.Bed);
-            if (Button(new Rect(x + card + 12,y + 48,card,80),"DOOR " + (h.DoorLevel + 1) + "\n" + (door < 0 ? "MAX" : door + " gold"),green,own && door >= 0 && !h.Building)) session.Buy(UpgradeKind.Door);
-            if (Button(new Rect(x + (card + 12) * 2,y + 48,card,80),buildOpen ? "CLOSE BUILD" : "BUILD",gold,own || session.Scouting)) { buildOpen = !buildOpen; movingSlot = -1; session.Overview = false; }
-            if (Button(new Rect(x + (card + 12) * 3,y + 48,card,80),"REPAIR\n" + MatchSimulation.RepairCost + " gold",muted,own && h.Health < h.MaxHealth)) { if (!session.Repair()) session.Notify("Not enough gold, or a build is in progress."); }
-            if (h.Building) Label(new Rect(x,y - 32,500,25),"Building " + h.BuildingKind + " / " + h.BuildRemaining.ToString("0.0") + "s",small,gold);
-            if (buildOpen) {
-                BuildPanel(h,own,y);
-                if (!string.IsNullOrEmpty(session.CurrentNotice)) Label(new Rect(346,y - 220,width - 380,32),session.CurrentNotice,small,gold);
-            }
-            else if (!string.IsNullOrEmpty(session.CurrentNotice)) { Box(new Rect(width / 2 - 350,y - 48,700,38),panel); Label(new Rect(width / 2 - 334,y - 40,668,28),session.CurrentNotice,small,gold); }
+            bool allowed = cost >= 0 && !house.IsBuilding && session.Match.Players[0].Gold >= cost;
+            if (HudTheme.Button(r,cost < 0 ? name + "\nMAX" : name + "\n" + HudTheme.Number(cost),ButtonKind.Primary,allowed)) session.Buy(kind);
         }
-        private void BuildPanel(HouseScout home,bool own,float bottom)
+        private void Sockets(Rect area,HouseScout h,bool own)
         {
-            float y = bottom - 184; Box(new Rect(324,y,width - 348,168),panel);
-            Label(new Rect(346,y + 12,550,30),session.Scouting ? "SCOUTING DEFENSES / READ ONLY" : movingSlot >= 0 ? "CHOOSE AN EMPTY DESTINATION SLOT" : "SELECT A ROOFTOP SOCKET",body,cream);
-            for (int slot = 0; slot < 3; slot++) {
-                var w = home.Weapons[slot]; string text = (slot + 1) + ": " + (!w.Present ? "EMPTY" : WeaponCatalog.Get(w.Kind).Name + " Lv." + w.Level);
-                if (Button(new Rect(346 + slot * 212,y + 48,200,38),text,buildSlot == slot ? gold : muted)) {
-                    if (movingSlot >= 0 && own && session.MoveWeapon(movingSlot,slot)) movingSlot = -1;
-                    buildSlot = slot;
-                }
+            var cards = Cut.Row(area,3,G);
+            for (int slot = 0; slot < 3; slot++) SocketCard(cards[slot],h,slot,own);
+        }
+        private void SocketCard(Rect card,HouseScout h,int slot,bool own)
+        {
+            var w = h.Weapons[slot]; bool selected = own && selectedSlot == slot;
+            HudTheme.Card(card); if (selected) HudTheme.Ring(card);
+            var inner = Cut.Inset(card,14);
+            var actions = own && (selected || (movingSlot >= 0 && !w.Present)) ? Cut.Bottom(ref inner,Touch,8) : Rect.zero;
+            var icon = Cut.Right(ref inner,Mathf.Min(84,inner.height),8);
+            if (w.Present) session.Arena.DrawWeaponIcon(Cut.Center(icon,icon.width,icon.width),w.Kind);
+            var d = w.Present ? WeaponCatalog.Get(w.Kind) : null;
+            HudTheme.Text(Cut.Top(ref inner,38),w.Present ? d.Name : "Empty socket",HudTheme.Body,w.Present ? HudTheme.Ink : HudTheme.Muted,true);
+            string detail = !w.Present ? (own ? "Tap to build" : "Slot " + (slot + 1)) : w.Building ? "Lv " + w.Level + "  ·  building" : "Lv " + w.Level + "  ·  range " + d.Range;
+            HudTheme.Text(Cut.Top(ref inner,30),detail,HudTheme.Label,HudTheme.Muted);
+            if (!own) return;
+            // The card body (above its action row) selects the socket.
+            var body = new Rect(card.x,card.y,card.width,actions.height > 0 ? actions.y - card.y - 4 : card.height);
+            if (body.height >= Touch && Hit(body,"Socket " + (slot + 1))) { selectedSlot = selectedSlot == slot && movingSlot < 0 ? -1 : slot; picking = false; }
+            if (actions.height <= 0) return;
+            if (movingSlot >= 0) {
+                if (movingSlot == slot) { if (HudTheme.Button(actions,"CANCEL MOVE",ButtonKind.Secondary)) movingSlot = -1; }
+                else if (!w.Present && HudTheme.Button(actions,"MOVE HERE",ButtonKind.Primary) && session.MoveWeapon(movingSlot,slot)) { selectedSlot = slot; movingSlot = -1; }
+                return;
             }
-            var selected = home.Weapons[buildSlot];
-            if (!selected.Present) {
-                for (int i = 0; i < 4; i++) {
-                    var d = WeaponCatalog.Get((WeaponKind)i); float w = (width - 408) / 4;
-                    if (Button(new Rect(346 + i * (w + 6),y + 104,w,44),d.Name + " / " + d.Cost,gold,own)) { if (!session.PlaceWeapon(buildSlot,d.Id)) session.Notify("Cannot place: check gold, socket and current build."); }
+            if (!w.Present) { if (HudTheme.Button(actions,"BUILD",ButtonKind.Primary)) picking = true; return; }
+            int cost = session.Match.WeaponUpgradeCost(h.HouseId,slot);
+            var sell = Cut.Right(ref actions,Touch + 12,8); var move = Cut.Right(ref actions,Touch,8);
+            if (HudTheme.Button(actions,cost < 0 ? "MAX" : "UPGRADE\n" + HudTheme.Number(cost),ButtonKind.Primary,cost >= 0 && !w.Building && session.Match.Players[0].Gold >= cost)) session.UpgradeWeapon(slot);
+            if (HudTheme.Button(move,"MOVE",ButtonKind.Secondary,!w.Building)) movingSlot = slot;
+            if (HudTheme.Button(sell,"SELL\n+" + HudTheme.Number(session.Match.SellValue(h.HouseId,slot)),ButtonKind.Secondary,!w.Building)) { session.SellWeapon(slot); movingSlot = -1; }
+        }
+        private void WeaponPicker(Rect area,HouseScout h)
+        {
+            HudTheme.Card(area); var inner = Cut.Inset(area,14);
+            HudTheme.Text(Cut.Top(ref inner,40,8),"Choose a weapon for slot " + (selectedSlot + 1),HudTheme.Body,HudTheme.Ink,true);
+            var row = Cut.Top(ref inner,Touch);
+            if (HudTheme.Button(Cut.Right(ref row,160,G),"CANCEL",ButtonKind.Secondary)) picking = false;
+            var buttons = Cut.Row(row,4,G);
+            for (int i = 0; i < 4; i++) {
+                var d = WeaponCatalog.Get((WeaponKind)i);
+                bool affordable = session.Match.Players[0].Gold >= d.Cost && !session.Match.Houses[h.HouseId].IsBuilding;
+                if (HudTheme.Button(buttons[i],d.Name.ToUpperInvariant() + "\n" + d.Cost + " gold",ButtonKind.Primary,affordable)) {
+                    if (session.PlaceWeapon(selectedSlot,d.Id)) picking = false; else session.Notify("Cannot build there right now.");
                 }
-            } else {
-                int cost = session.Match.WeaponUpgradeCost(home.HouseId,buildSlot);
-                if (Button(new Rect(346,y + 104,240,44),selected.Building ? "BUILDING..." : cost < 0 ? "MAX LEVEL" : "UPGRADE / " + cost,green,own && cost >= 0 && !selected.Building)) session.UpgradeWeapon(buildSlot);
-                if (Button(new Rect(598,y + 104,180,44),"MOVE",muted,own && !selected.Building)) movingSlot = buildSlot;
-                if (Button(new Rect(790,y + 104,224,44),own ? "SELL / " + session.Match.SellValue(home.HouseId,buildSlot) : "SELL",muted,own && !selected.Building)) { session.SellWeapon(buildSlot); movingSlot = -1; }
-                Label(new Rect(1034,y + 104,width - 1080,48),"Range " + WeaponCatalog.Get(selected.Kind).Range,small,muted);
             }
         }
     }

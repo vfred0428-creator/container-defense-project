@@ -43,7 +43,7 @@ public static class MatchContractTests
         });
         Check("Map load validates connectivity, route edges, house adjacency and telegraph floor", () => {
             var bad = MapDefinition.Default(); bad.Nodes[19].X = 30; bad.Nodes[19].Z = 30; Reject(bad);
-            bad = MapDefinition.Default(); bad.Routes[0].NodeSequence = new[] { 0,5 }; Reject(bad);
+            bad = MapDefinition.Default(); bad.Routes[0].NodeSequence = new[] { 0,6 }; Reject(bad);
             bad = MapDefinition.Default(); bad.HouseSpawns[4].X = 200; Reject(bad);
             bad = MapDefinition.Default(); bad.Routes[1].TelegraphTime = 3.9f; Reject(bad);
             foreach (int n in Enumerable.Range(0,20)) True(map.Neighbors(n).Length >= 2 && map.Neighbors(n).Length <= 4);
@@ -54,7 +54,7 @@ public static class MatchContractTests
                 var p1 = map.RoadPath(from,to); var p2 = map.Snapshot().RoadPath(from,to);
                 True(p1.Length == p2.Length); for (int i = 0; i < p1.Length; i++) Near(0,p1[i].Distance(p2[i]));
                 for (int i = 1; i < p1.Length; i++) True(Math.Abs(p1[i].X - p1[i - 1].X) < .001f || Math.Abs(p1[i].Z - p1[i - 1].Z) < .001f);
-                True(p1.Length - 2 == Math.Abs(a % 4 - b % 4) + Math.Abs(a / 4 - b / 4));
+                True(p1.Length - 2 == Math.Abs(a % 5 - b % 5) + Math.Abs(a / 5 - b / 5));
             }
         });
         Check("Boss follows the road polyline without skipping nodes at the largest step", () => {
@@ -299,7 +299,7 @@ public static class MatchContractTests
                 if (!FinalStepHasShot(seed,float.MaxValue,out finalStep,out shotDamageThroughFinal)) continue;
                 found = true;
                 var m = TwoHouseRace(seed,shotDamageThroughFinal - .01f);
-                for (int i = 0; i <= finalStep && !m.Finished; i++) m.Tick(Step);
+                for (int i = 0; i <= finalStep && !m.Finished; i++) m.Tick(RaceStep);
                 True(m.Finished && m.EndReason == MatchEndReason.BossDefeated && m.Phase == MatchPhase.Victory && m.LivingHouses() == 2 && m.WinnerId == -1);
             }
             True(found);
@@ -334,10 +334,12 @@ public static class MatchContractTests
         for (int h = 0; h < 12; h++) run.Health[h] = m.Houses[h].Health;
         return run;
     }
+    // The largest legal step, so a weapon shot and the final door hit can share one step.
+    private const float RaceStep = .1f;
     private static MatchSimulation TwoHouseRace(int seed,float bossHealth)
     {
         var r = Rules(); r.BossHealth = bossHealth; r.BossDamage = 60; var m = new MatchSimulation(r,seed); ClaimAll(m,new[] { 1,4 });
-        m.CommandsFor(0).Place(1,WeaponKind.Gatling); m.CommandsFor(1).Place(1,WeaponKind.Gatling);
+        m.CommandsFor(0).Place(1,WeaponKind.Gatling); m.CommandsFor(1).Place(1,(WeaponKind)(seed % 4));
         return m;
     }
     // Finds whether the step that ends a two-house race by elimination also contains a weapon shot.
@@ -346,8 +348,8 @@ public static class MatchContractTests
         var m = TwoHouseRace(seed,bossHealth); int step = 0; bool shotThisStep = false; float damage = 0;
         m.Changed += e => { if (e.Kind == MatchEventKind.Shot) shotThisStep = true; };
         finalStep = -1; damageThroughFinal = 0;
-        for (; step < 30 * 900 && !m.Finished; step++) {
-            shotThisStep = false; m.Tick(Step); damage = m.Players[0].DamageDealt + m.Players[1].DamageDealt;
+        for (; step < 10 * 900 && !m.Finished; step++) {
+            shotThisStep = false; m.Tick(RaceStep); damage = m.Players[0].DamageDealt + m.Players[1].DamageDealt;
         }
         if (!m.Finished || m.EndReason != MatchEndReason.LastStanding || !shotThisStep) return false;
         finalStep = step - 1; damageThroughFinal = damage; return true;

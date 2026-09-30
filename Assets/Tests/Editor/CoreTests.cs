@@ -23,7 +23,7 @@ public static class CoreTests
             var m = New(); var start = m.Players[0].Position;
             m.Move(0, 1, 1, Step); Near(5 * Step, start.Distance(m.Players[0].Position));
             for (int i = 0; i < 1000; i++) m.Move(0, 1, 1, Step);
-            True(Math.Abs(m.Players[0].Position.X) <= 18 && Math.Abs(m.Players[0].Position.Z) <= 18); True(m.Map.Walkable(m.Players[0].Position));
+            True(Math.Abs(m.Players[0].Position.X) <= m.Map.MaxX && Math.Abs(m.Players[0].Position.Z) <= m.Map.MaxZ); True(m.Map.Walkable(m.Players[0].Position));
         });
         Check("Claim requires proximity and is first-wins", () => {
             var m = New(); False(m.TryClaim(0, 0)); Walk(m, 0, 0); Walk(m, 1, 0);

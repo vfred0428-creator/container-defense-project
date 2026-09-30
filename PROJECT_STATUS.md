@@ -13,6 +13,23 @@ Updated 2026-09-30. Latest Photo 1–5 references define the 2D / 2.5D direction
 - Checks: 124 domain (Tools/Test-Core.ps1, incl. 27 MatchContractTests) + 17 Unity persistence = 141 pass. Smoke + reload evidence (pre-last-one-wins build): TestResults/M6-Neighborhood. The Windows player was not rebuilt for last one wins, at vhi's request.
 - LAST ONE WINS (vhi decision 2026-09-30): if two or more houses enter combat, the match ends (Victory, EndReason LastStanding, WinnerId) as soon as one occupied house remains, whether by boss elimination or TryForfeit. Endings are judged at step end; weapons resolve first, so a boss killed in the same step is BossDefeated. If no house remains, the result is AllFallen (Defeat). Placement: standing first, then later EliminatedAt; ties go to the lower house number, and players with no house come last by player id. A match that enters combat with a single house is still a solo boss fight. The boss Waiting path remains, because two or more living houses can all be protected at once. TryForfeit is logic-only (kept for future leave/disconnect).
 
+## UI AND MAP PASS (2026-09-30, in progress: after-screenshots pending)
+- Before shots: TestResults/UI-Pass/before at 1920x1080, 1280x720 and 1920x886. 1920x886 has the 2340x1080 aspect scaled to the 1920-wide desktop. They were captured by Tools/Capture-UiShots.ps1 from the existing player. The Editor harness Assets/Editor/UiScreenshots.cs needs an activated Unity Editor license, which is currently missing.
+- HUD stays IMGUI, not replaced with uGUI; it now applies the spec:
+  - HudTheme: 1920x1080 reference, match 0.5 (geometric mean). Navy #1B2238 panels with a 2px #3A4670 border, 20px radius and soft shadow. Bevelled buttons: green #39C46A for confirm, orange for play, slate secondary. The only glow is a 4px gold #FFD04A selection ring.
+  - Nunito at 56/36/28/22, never below 22. Thousands separators and mm:ss.
+  - Layout uses Cut (rect cutting), so sibling regions cannot overlap. Everything interactive is inside Screen.safeArea. HudAudit logs overlaps, out-of-safe-area controls and text that would clip, in development builds.
+- Match HUD:
+  - Top-left: portrait strip in house order with HP bars and house badges.
+  - Top-centre: boss bar with HP numbers.
+  - Top-right: gold and timer pills, gear, and a 4x3 minimap.
+  - Left column: map/focus, my house, prev/next, and my room.
+  - Bottom panel (260px, 24% at 1080p): house summary, the four house actions, and three socket cards with an inline weapon picker.
+  - One toast slot above the panel holds at most two lines.
+- Map: re-laid as 4 houses x 3 rows on a 5x4 road grid (still 12 houses, 20 orthogonal nodes, and the same route kinds). This fills the wide band between the HUD regions. Houses use a uniform scale (previously stretched 1.5x). Roads and ground are tiled; boss entry chevrons sit at the ring edge. Rooftop number plaques include owner HP and hide under HUD panels. The camera fits the neighbourhood into the space the HUD leaves free. FixedMap.asset matches MapDefinition.Default(), which RunChecks enforces.
+- Generated art: Higgsfield originals are in Art/Source/Generated. Resized and seamless versions are in Assets/Resources/Art2D/Generated: ground_tile, road_straight, road_cross, boss_entry_marker, and icons coin, timer, gear and heart. Each has a procedural fallback, so removing a file restores the placeholder.
+- VIEW MY ROOM was unreachable after the 12-house HUD change; it is restored as a MY ROOM button while sleeping.
+
 ## WORKING
 - M1 preserved: local human + five independent bots, six exclusive houses, movement/claiming, sleeping income, personal upgrades, boss targeting/damage, elimination, spectating, win/loss.
 - M2 preserved: seven personal passives, permanent XP/level/unlocks at 1/3/5/7/9/12/15, selection and save recovery.

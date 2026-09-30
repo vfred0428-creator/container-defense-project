@@ -64,7 +64,12 @@ namespace ContainerDefense.Editor
             config.Rules.Validate();
             AssetDatabase.LoadAssetAtPath<CharacterConfig>("Assets/Resources/Characters.asset").Validate();
             AssetDatabase.LoadAssetAtPath<CollectionConfig>("Assets/Resources/Collections.asset").Catalog();
-            AssetDatabase.LoadAssetAtPath<MapConfig>("Assets/Resources/FixedMap.asset").Definition.Validate();
+            var fixedMap = AssetDatabase.LoadAssetAtPath<MapConfig>("Assets/Resources/FixedMap.asset").Definition; fixedMap.Validate();
+            // The shipped map asset must match the code default the tests exercise.
+            var reference = MapDefinition.Default();
+            for (int i = 0; i < reference.HouseSpawns.Length; i++) if (fixedMap.HouseSpawns[i].Center.Distance(reference.HouseSpawns[i].Center) > .001f) throw new System.Exception("FixedMap house " + (i + 1) + " differs from MapDefinition.Default().");
+            for (int i = 0; i < reference.Nodes.Length; i++) if (fixedMap.Nodes[i].Position.Distance(reference.Nodes[i].Position) > .001f) throw new System.Exception("FixedMap node " + i + " differs from MapDefinition.Default().");
+            if (fixedMap.Routes.Length != reference.Routes.Length || string.Join(",",fixedMap.EntryNodes) != string.Join(",",reference.EntryNodes)) throw new System.Exception("FixedMap routes or entries differ from MapDefinition.Default().");
 
             foreach (var skin in AssetDatabase.LoadAssetAtPath<CollectionConfig>("Assets/Resources/Collections.asset").Skins)
                 if (Resources.Load<Texture2D>("Art2D/" + skin.SkinId) == null) throw new System.Exception("Missing portrait: " + skin.SkinId);
