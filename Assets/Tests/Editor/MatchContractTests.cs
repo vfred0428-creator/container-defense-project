@@ -54,7 +54,7 @@ public static class MatchContractTests
                 var p1 = map.RoadPath(from,to); var p2 = map.Snapshot().RoadPath(from,to);
                 True(p1.Length == p2.Length); for (int i = 0; i < p1.Length; i++) Near(0,p1[i].Distance(p2[i]));
                 for (int i = 1; i < p1.Length; i++) True(Math.Abs(p1[i].X - p1[i - 1].X) < .001f || Math.Abs(p1[i].Z - p1[i - 1].Z) < .001f);
-                True(p1.Length - 2 == Math.Abs(a % 5 - b % 5) + Math.Abs(a / 5 - b / 5));
+                True(p1.Length - 2 == Math.Abs(a % 4 - b % 4) + Math.Abs(a / 4 - b / 4));
             }
         });
         Check("Boss follows the road polyline without skipping nodes at the largest step", () => {

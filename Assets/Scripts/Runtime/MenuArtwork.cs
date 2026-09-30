@@ -14,9 +14,9 @@ namespace ContainerDefense
         }
         public static void Background(Rect rect)
         {
-            var texture = Get("yard");
+            var texture = Get("Generated/menu_bg") ?? Get("yard");
             if (texture != null) GUI.DrawTexture(rect,texture,ScaleMode.ScaleAndCrop);
-            var previous = GUI.color; GUI.color = new Color(.035f,.045f,.1f,.2f);
+            var previous = GUI.color; GUI.color = new Color(.035f,.045f,.1f,.08f);
             GUI.DrawTexture(rect,Texture2D.whiteTexture); GUI.color = previous;
         }
     }

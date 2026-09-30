@@ -280,7 +280,9 @@ namespace ContainerDefense
         private void MenuBackground()
         {
             MenuArtwork.Background(new Rect(0,0,width,height));
-            HudTheme.Fill(new Rect(0,0,width,height),HudTheme.Hex(0x0B1020,.62f));
+            // Keep the art visible; darken only enough for the panels, more toward the bottom where the UI sits.
+            HudTheme.Fill(new Rect(0,0,width,height),HudTheme.Hex(0x0B1020,.22f));
+            HudTheme.Fill(new Rect(0,height * .55f,width,height * .45f),HudTheme.Hex(0x0B1020,.28f));
             HudLayout.Clear();
         }
         // Header panel shared by the menu screens: title plus an optional one-line note and a right-side stat.

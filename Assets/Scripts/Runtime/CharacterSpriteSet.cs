@@ -9,6 +9,9 @@ namespace ContainerDefense
     {
         public readonly Texture2D Texture;
         public readonly string SkinId;
+        // Generated single-pose body and portrait for default skins; animation is driven in code.
+        public readonly Sprite Body;
+        public readonly Texture2D BodyTexture, PortraitTexture;
         private readonly Sprite[] frames = new Sprite[9];
         public CharacterSpriteSet(string skinId)
         {
@@ -20,10 +23,16 @@ namespace ContainerDefense
                 frames[i] = Sprite.Create(Texture,new Rect(uv.x * Texture.width,uv.y * Texture.height,uv.width * Texture.width,uv.height * Texture.height),new Vector2(.5f,.1f),Texture.width / 3f);
                 frames[i].name = skinId + " / " + i;
             }
+            string key = skinId.EndsWith("_default") ? skinId.Substring(0,skinId.Length - 8) : null;
+            if (key != null) {
+                BodyTexture = Resources.Load<Texture2D>("Art2D/Generated/body_" + key); PortraitTexture = Resources.Load<Texture2D>("Art2D/Generated/portrait_" + key);
+                // Pivot at the feet; about 1.57 units tall before the in-world scale (so roughly 2.4 on screen).
+                if (BodyTexture != null) Body = Sprite.Create(BodyTexture,new Rect(0,0,BodyTexture.width,BodyTexture.height),new Vector2(.5f,.02f),BodyTexture.height / 1.57f);
+            }
         }
         public Sprite Frame(int index) { return frames[Mathf.Clamp(index,0,8)]; }
         public static Rect Uv(int index) { return new Rect(index % 3 / 3f,(2 - index / 3) / 3f,1f / 3,1f / 3); }
-        public void Dispose() { foreach (var frame in frames) Object.Destroy(frame); }
+        public void Dispose() { foreach (var frame in frames) Object.Destroy(frame); if (Body != null) Object.Destroy(Body); }
     }
 
     public sealed class CharacterPortraits
@@ -38,6 +47,12 @@ namespace ContainerDefense
         public void Draw(Rect rect,string skinId,bool face = false,int frame = 8)
         {
             var set = Set(skinId); if (set == null) return;
+            // Default pose and faces use the generated art when present; special poses (sleep, etc.) keep the atlas.
+            var art = face ? set.PortraitTexture : frame == 8 ? set.BodyTexture : null;
+            if (art != null) {
+                float s = Mathf.Min(rect.width / art.width,rect.height / art.height);
+                GUI.DrawTexture(new Rect(rect.center.x - art.width * s / 2,rect.center.y - art.height * s / 2,art.width * s,art.height * s),art,ScaleMode.StretchToFill,true); return;
+            }
             Rect uv = CharacterSpriteSet.Uv(frame);
             if (face) uv = new Rect(uv.x + uv.width * .1f,uv.y + uv.height * .35f,uv.width * .8f,uv.height * .6f);
             float aspect = face ? 1.3333f : 1;

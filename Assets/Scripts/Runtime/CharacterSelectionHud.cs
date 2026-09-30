@@ -13,7 +13,9 @@ namespace ContainerDefense
             // Top row: brand, profile, rank, charisma. Cards are fixed widths; spare width is margin.
             var top = Cut.Top(ref area,120,24);
             var charisma = Cut.Right(ref top,300,G); var rank = Cut.Right(ref top,280,G); var profile = Cut.Right(ref top,Mathf.Min(480,top.width * .55f),G);
-            HudTheme.Text(top,"CONTAINER DEFENSE",HudTheme.Title,HudTheme.Gold,true);
+            var logo = MenuArtwork.Get("Generated/logo");
+            if (logo != null) { float lh = Mathf.Min(top.height + 40,top.width * logo.height / logo.width); GUI.DrawTexture(new Rect(top.x,top.y - 16,lh * logo.width / logo.height,lh),logo,ScaleMode.ScaleToFit,true); }
+            else HudTheme.Text(top,"CONTAINER DEFENSE",HudTheme.Title,HudTheme.Gold,true);
             HudTheme.Panel(profile); var p = Cut.Inset(profile,12);
             Portrait(Cut.Left(ref p,96,G),session.Inventory.Equipped(account.Selected),true);
             HudTheme.Text(Cut.Top(ref p,40),account.Social.Profile.Username,HudTheme.Body,HudTheme.Ink,true);
