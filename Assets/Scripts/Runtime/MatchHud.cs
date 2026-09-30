@@ -157,8 +157,10 @@ namespace ContainerDefense
             bool won = m.Phase == MatchPhase.Victory && !p.Eliminated;
             float x = width / 2 - 290, y = height / 2 - 305;
             Box(new Rect(x,y,580,610),panel);
-            Label(new Rect(x + 40,y + 34,500,54),won ? "STORM SURVIVED" : "ELIMINATED",title,won ? gold : red);
-            Label(new Rect(x + 40,y + 101,500,52),won ? "Your little home held on." : m.Phase == MatchPhase.Victory ? "The remaining residents defeated the boss." : "The storm claimed every home.",body,muted);
+            bool lastStanding = m.EndReason == MatchEndReason.LastStanding;
+            Label(new Rect(x + 40,y + 34,500,54),won ? (lastStanding ? "LAST ONE STANDING" : "STORM SURVIVED") : "PLACED #" + p.Placement,title,won ? gold : red);
+            string winner = m.WinnerId >= 0 ? m.Players[m.WinnerId].Name : "";
+            Label(new Rect(x + 40,y + 101,500,52),won ? (lastStanding ? "Every other home fell. You placed #1." : "Your little home held on.") : lastStanding ? winner + " was the last one standing." : m.Phase == MatchPhase.Victory ? "The remaining residents defeated the boss." : "The storm claimed every home.",body,muted);
             Label(new Rect(x + 40,y + 173,310,166),"Survival time\n\nBoss damage\n\nGold earned\n\nUpgrades purchased",body,muted);
             Label(new Rect(x + 360,y + 173,180,166),Clock(p.SurvivalSeconds) + "\n\n" + Mathf.RoundToInt(p.DamageDealt) + "\n\n" + ((int)p.GoldEarned).ToString("N0") + "\n\n" + p.UpgradesPurchased,body,Color.white);
             var reward = session.LastReward;

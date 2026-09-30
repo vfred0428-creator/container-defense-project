@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using ContainerDefense.Domain;
@@ -84,7 +84,7 @@ public static class MatchContractTests
                 var r = Rules(); r.BossDamage = 90; var m = new MatchSimulation(r,seed); ClaimAll(m,new[] { 1,3,5,7,8,10 });
                 var log = new Log(m);
                 for (int i = 0; i < 30 * 900 && !m.Finished; i++) m.Tick(Step);
-                True(m.Phase == MatchPhase.Defeat); log.Verify(m,6,m.Elapsed);
+                True(m.Phase == MatchPhase.Victory && m.EndReason == MatchEndReason.LastStanding && m.LivingHouses() == 1); log.Verify(m,6,m.Elapsed);
                 foreach (var h in m.Houses) if (h.OwnerId < 0) True(h.AttacksReceived == 0);
             }
         });
@@ -118,7 +118,7 @@ public static class MatchContractTests
             }
         });
         Check("A house vacated mid-visit ends the visit and is never hit again", () => {
-            var m = new MatchSimulation(Rules(),2); ClaimAll(m,new[] { 3,8 });
+            var m = new MatchSimulation(Rules(),2); ClaimAll(m,new[] { 3,8,0 });
             int target = -1; m.Changed += e => { if (e.Kind == MatchEventKind.DoorHit && target < 0) target = e.HouseId; };
             while (target < 0) m.Tick(Step);
             int hits = m.Houses[target].AttacksReceived; True(m.CommandsFor(m.Houses[target].OwnerId).Forfeit());
@@ -247,6 +247,71 @@ public static class MatchContractTests
             True(after.Rank.CurrentRank == before.Rank.CurrentRank && after.Rank.Stars == before.Rank.Stars && after.Rank.MatchesPlayed == before.Rank.MatchesPlayed);
             True(after.Collection.OwnedSkins.All(s => s.EndsWith("_default")));
         });
+        Check("Last one wins: the match ends on the fifth elimination and the survivor places first", () => {
+            for (int seed = 1; seed <= 6; seed++) {
+                var r = Rules(); r.BossDamage = 90; var m = new MatchSimulation(r,seed); ClaimAll(m,new[] { 0,2,4,6,9,11 });
+                int eliminated = 0, eliminatedAtFinish = -1, finishes = 0; bool after = false;
+                m.Changed += e => {
+                    if (after) throw new Exception("Event after finish: " + e.Kind);
+                    if (e.Kind == MatchEventKind.Eliminated) { eliminated++; True(!m.Finished); }
+                    if (e.Kind == MatchEventKind.Finished) { finishes++; eliminatedAtFinish = eliminated; after = true; }
+                };
+                for (int i = 0; i < 30 * 1200 && !m.Finished; i++) m.Tick(Step);
+                True(finishes == 1 && eliminatedAtFinish == 5 && m.Phase == MatchPhase.Victory && m.EndReason == MatchEndReason.LastStanding);
+                var winner = m.Players[m.WinnerId]; True(!winner.Eliminated && winner.Placement == 1 && m.Houses[winner.HouseId].Occupied);
+                var byPlace = m.Players.OrderBy(p => p.Placement).ToArray();
+                for (int i = 0; i < 6; i++) True(byPlace[i].Placement == i + 1);
+                for (int i = 2; i < 6; i++) True(byPlace[i - 1].EliminatedAt >= byPlace[i].EliminatedAt);
+                True(m.Boss.TargetHouseId < 0 && m.Boss.RouteHouses.Length == 0 && m.Boss.Phase == BossPhase.Waiting && m.Boss.Health > 0);
+                float t = m.Elapsed; for (int i = 0; i < 60; i++) m.Tick(Step); True(m.Elapsed == t);
+                False(m.CommandsFor(winner.Id).Place(2,WeaponKind.Gatling)); False(m.CommandsFor(winner.Id).Forfeit()); False(m.TryToggleSleep(winner.Id));
+            }
+        });
+        Check("A forfeit that leaves one house standing ends the match at once", () => {
+            var m = new MatchSimulation(Rules(),4); ClaimAll(m,new[] { 1,7,10 });
+            True(m.CommandsFor(2).Forfeit()); True(!m.Finished);
+            while (m.Phase == MatchPhase.Preparation) m.Tick(Step);
+            True(!m.Finished && m.LivingHouses() == 2);
+            True(m.CommandsFor(0).Forfeit());
+            True(m.Finished && m.EndReason == MatchEndReason.LastStanding && m.WinnerId == 1 && m.Players[1].Placement == 1 && m.Players[0].Placement == 2 && m.Players[2].Placement == 6);
+            False(m.CommandsFor(1).Repair());
+        });
+        Check("A solo house still fights the boss; last one wins needs two contestants", () => {
+            var r = Rules(); r.BossDamage = 500; var m = new MatchSimulation(r,4); ClaimAll(m,new[] { 5 });
+            for (int i = 0; i < 30 * 30 && m.Phase == MatchPhase.Preparation; i++) m.Tick(Step);
+            m.Tick(Step); True(!m.Finished);
+            for (int i = 0; i < 30 * 300 && !m.Finished; i++) m.Tick(Step);
+            True(m.Phase == MatchPhase.Defeat && m.EndReason == MatchEndReason.AllFallen && m.WinnerId == -1 && m.Players[0].Placement == 1);
+        });
+        Check("Simultaneous eliminations resolve by house number, then player id", () => {
+            var m = new MatchSimulation(Rules(),9); ClaimAll(m,new[] { 8,3 });
+            for (int i = 0; i < 30 * 31 && !m.Finished; i++) m.Tick(Step);
+            // Players 2..5 never claimed and were all eliminated at the same instant.
+            for (int p = 2; p < 6; p++) Near(30,m.Players[p].EliminatedAt);
+            True(m.CommandsFor(1).Forfeit());
+            True(m.Players[0].Placement == 1 && m.Players[1].Placement == 2);
+            for (int p = 2; p < 6; p++) True(m.Players[p].Placement == p + 1);
+        });
+        Check("Boss death in the step the second-to-last house would fall is a boss victory", () => {
+            bool found = false;
+            for (int seed = 1; seed <= 400 && !found; seed++) {
+                float shotDamageThroughFinal; int finalStep;
+                if (!FinalStepHasShot(seed,float.MaxValue,out finalStep,out shotDamageThroughFinal)) continue;
+                found = true;
+                var m = TwoHouseRace(seed,shotDamageThroughFinal - .01f);
+                for (int i = 0; i <= finalStep && !m.Finished; i++) m.Tick(Step);
+                True(m.Finished && m.EndReason == MatchEndReason.BossDefeated && m.Phase == MatchPhase.Victory && m.LivingHouses() == 2 && m.WinnerId == -1);
+            }
+            True(found);
+        });
+        Check("A last-one-wins result applies to the account exactly once", () => {
+            var account = new AccountProgression(new AccountData { TotalXp = 500 },new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules(),CollectionCatalog.CreateDefault());
+            var m = new MatchSimulation(Rules(),12); long ticket = account.BeginMatch(m,true); ClaimAll(m,new[] { 2,9 });
+            while (m.Phase == MatchPhase.Preparation) m.Tick(Step);
+            True(m.CommandsFor(1).Forfeit() && m.Finished && m.WinnerId == 0);
+            MatchReward reward, again; True(account.TryAward(m,ticket,out reward)); False(account.TryAward(m,ticket,out again));
+            True(account.Rank.Wins == 1 && account.Rank.MatchesPlayed == 1 && account.Social.Profile.Wins == 1 && account.TotalXp == 500 + reward.Xp);
+        });
         return passed + " match contract scenarios passed.";
     }
 
@@ -268,6 +333,24 @@ public static class MatchContractTests
         for (int i = 0; i < fps * 420 && !m.Finished; i++) m.Tick(step);
         for (int h = 0; h < 12; h++) run.Health[h] = m.Houses[h].Health;
         return run;
+    }
+    private static MatchSimulation TwoHouseRace(int seed,float bossHealth)
+    {
+        var r = Rules(); r.BossHealth = bossHealth; r.BossDamage = 60; var m = new MatchSimulation(r,seed); ClaimAll(m,new[] { 1,4 });
+        m.CommandsFor(0).Place(1,WeaponKind.Gatling); m.CommandsFor(1).Place(1,WeaponKind.Gatling);
+        return m;
+    }
+    // Finds whether the step that ends a two-house race by elimination also contains a weapon shot.
+    private static bool FinalStepHasShot(int seed,float bossHealth,out int finalStep,out float damageThroughFinal)
+    {
+        var m = TwoHouseRace(seed,bossHealth); int step = 0; bool shotThisStep = false; float damage = 0;
+        m.Changed += e => { if (e.Kind == MatchEventKind.Shot) shotThisStep = true; };
+        finalStep = -1; damageThroughFinal = 0;
+        for (; step < 30 * 900 && !m.Finished; step++) {
+            shotThisStep = false; m.Tick(Step); damage = m.Players[0].DamageDealt + m.Players[1].DamageDealt;
+        }
+        if (!m.Finished || m.EndReason != MatchEndReason.LastStanding || !shotThisStep) return false;
+        finalStep = step - 1; damageThroughFinal = damage; return true;
     }
     private static MatchSimulation LethalRace(int seed)
     {

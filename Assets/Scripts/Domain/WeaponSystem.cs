@@ -182,7 +182,7 @@ namespace ContainerDefense.Domain
                     Boss.Health -= damage; players[h.OwnerId].DamageDealt += damage;
                     if (d.SlowSeconds > 0) Boss.SlowRemaining = Math.Max(Boss.SlowRemaining,d.SlowSeconds);
                     Emit(MatchEventKind.Shot,h.OwnerId,h.Id,slot);
-                    if (Boss.Health <= 0) { Finish(true); return; }
+                    if (Boss.Health <= 0) { Finish(MatchEndReason.BossDefeated); return; }
                 }
             }
         }

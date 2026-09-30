@@ -76,15 +76,16 @@ public static class CoreTests
             var r = Rules(); r.PreparationSeconds = 1; var m = new MatchSimulation(r); Advance(m, 2);
             Equal(MatchPhase.Defeat, m.Phase);
         });
-        Check("Boss travels, telegraphs, attacks, eliminates and retargets", () => {
+        Check("Boss travels, telegraphs, attacks, eliminates, retargets and the last house standing wins", () => {
             var r = Rules(); r.PreparationSeconds = 0.1f; r.BossDamage = 500;
-            r.BossHealth = 100000; var m = new MatchSimulation(r); Claim(m, 0, 0); Claim(m, 1, 1);
+            r.BossHealth = 100000; var m = new MatchSimulation(r); Claim(m, 0, 0); Claim(m, 1, 1); Claim(m, 2, 2);
             int hits = 0; m.Changed += e => { if (e.Kind == MatchEventKind.DoorHit) hits++; };
             m.Tick(Step); m.Tick(Step); m.Tick(Step); m.Tick(Step);
             Equal(BossPhase.Telegraphing, m.Boss.Phase); Equal(0, hits);
             for (int i = 0; i < 1800 && !m.Finished; i++) m.Tick(Step);
-            Equal(2, hits); Equal(MatchPhase.Defeat, m.Phase);
-            True(m.Players[0].Eliminated); True(m.Players[1].Eliminated);
+            Equal(2, hits); Equal(MatchPhase.Victory, m.Phase); Equal(MatchEndReason.LastStanding, m.EndReason);
+            int standing = 0; for (int p = 0; p < 3; p++) if (!m.Players[p].Eliminated) { standing++; Equal(p, m.WinnerId); Equal(1, m.Players[p].Placement); }
+            Equal(1, standing); Equal(BossPhase.Waiting, m.Boss.Phase);
         });
         Check("Elimination blocks earnings, movement, upgrades and sleep", () => {
             var r = Rules(); r.PreparationSeconds = 0.1f; r.BossDamage = 1000; r.BossHealth = 100000;

@@ -49,7 +49,7 @@ namespace ContainerDefense.Domain
             }
             for (int i = 0; i < houses.Length; i++) houses[i] = new HouseState(map.HouseSpawns[i],rules.DoorHealth[0]);
             Players = Array.AsReadOnly(players); Houses = Array.AsReadOnly(houses);
-            Boss = new BossState(rules.BossHealth); Phase = MatchPhase.Preparation;
+            Boss = new BossState(rules.BossHealth); Phase = MatchPhase.Preparation; WinnerId = -1;
             Boss.EntryNode = map.EntryNodes[random.Next(map.EntryNodes.Length)]; Boss.Position = map.Nodes[Boss.EntryNode].Position;
         }
 
@@ -166,10 +166,12 @@ namespace ContainerDefense.Domain
                 // The boss clock starts exactly at the deadline, not at the first step boundary after it.
                 combatStep = clock - rules.PreparationSeconds;
                 Phase = MatchPhase.Combat; Boss.Phase = BossPhase.Selecting;
-                foreach (PlayerState p in players) if (p.HouseId < 0) Eliminate(p);
+                foreach (PlayerState p in players) if (p.HouseId < 0) Eliminate(p,rules.PreparationSeconds);
+                // Last one wins applies only when two or more houses entered combat; a solo house fights the boss alone.
+                contestants = LivingHouses();
                 Emit(MatchEventKind.CombatStarted);
             }
-            if (LivingHouses() == 0 && Phase == MatchPhase.Combat) { Finish(false); return; }
+            if (Phase == MatchPhase.Combat && LivingHouses() == 0) { Finish(MatchEndReason.AllFallen); return; }
             foreach (var house in houses)
             {
                 if (!house.IsBuilding || house.Destroyed) continue;
@@ -192,6 +194,24 @@ namespace ContainerDefense.Domain
             if (Finished) return;
             if (Phase != MatchPhase.Combat) return;
             TickBossRoute(combatStep);
+            // Houses that fell during this step are judged together at its end.
+            ResolveEnd();
+        }
+
+        private int contestants;
+        public MatchEndReason EndReason { get; private set; }
+        // The last player standing when the match ended that way, otherwise -1.
+        public int WinnerId { get; private set; }
+        private bool EndReached()
+        {
+            if (Phase != MatchPhase.Combat) return false;
+            int living = LivingHouses();
+            return living == 0 || (contestants >= 2 && living == 1);
+        }
+        private void ResolveEnd()
+        {
+            if (Finished || !EndReached()) return;
+            Finish(LivingHouses() == 0 ? MatchEndReason.AllFallen : MatchEndReason.LastStanding);
         }
 
         // Wallet arithmetic saturates at MaxWallet and never accepts nonfinite or negative credits.
@@ -206,7 +226,7 @@ namespace ContainerDefense.Domain
         public bool TryForfeit(int playerId)
         {
             PlayerState p; if (!ActivePlayer(playerId, out p)) return false;
-            Eliminate(p); if (Phase == MatchPhase.Combat && LivingHouses() == 0) Finish(false);
+            Eliminate(p,clock); ResolveEnd();
             return true;
         }
         public int LivingHouses()
@@ -215,10 +235,10 @@ namespace ContainerDefense.Domain
             foreach (HouseState h in houses) if (h.Occupied) count++;
             return count;
         }
-        private void Eliminate(PlayerState p)
+        private void Eliminate(PlayerState p,double at)
         {
             if (p.Eliminated) return;
-            p.Eliminated = true; p.Sleeping = false; p.SurvivalSeconds = Elapsed; navigation[p.Id] = null;
+            p.Eliminated = true; p.Sleeping = false; p.SurvivalSeconds = Elapsed; p.EliminatedAt = (float)at; navigation[p.Id] = null;
             if (p.HouseId >= 0) {
                 // The house is vacated: its weapons stop and the boss never targets it again.
                 var h = houses[p.HouseId]; h.IsBuilding = false; h.BuildRemaining = 0; h.Vacated = true;
@@ -226,15 +246,31 @@ namespace ContainerDefense.Domain
             }
             Emit(MatchEventKind.Eliminated, p.Id, p.HouseId);
         }
-        private void Finish(bool victory)
+        private void Finish(MatchEndReason reason)
         {
             if (Finished) return;
-            Phase = victory ? MatchPhase.Victory : MatchPhase.Defeat;
+            EndReason = reason;
+            Phase = reason == MatchEndReason.AllFallen ? MatchPhase.Defeat : MatchPhase.Victory;
             foreach (PlayerState p in players) p.Sleeping = false;
+            if (reason == MatchEndReason.LastStanding) foreach (var h in houses) if (h.Occupied) WinnerId = h.OwnerId;
+            AssignPlacements();
             // Cancel anything pending so no hit, telegraph or timer survives the result.
-            Boss.Phase = victory ? BossPhase.Dead : BossPhase.Waiting; Boss.TargetHouseId = -1; Boss.AttackTimer = 0;
+            Boss.Phase = reason == MatchEndReason.BossDefeated ? BossPhase.Dead : BossPhase.Waiting; Boss.TargetHouseId = -1; Boss.AttackTimer = 0;
             Boss.TelegraphRemaining = 0; Boss.RecoveryRemaining = 0; Boss.RouteHouses = new int[0]; Boss.RoutePath = new Point2[0];
             Emit(MatchEventKind.Finished);
+        }
+        // Standing players first, then later eliminations. Equal times (houses falling together)
+        // resolve by house number, and players who never claimed a house come last by player id.
+        private void AssignPlacements()
+        {
+            var order = new List<PlayerState>(players);
+            order.Sort((a,b) => {
+                if (a.Eliminated != b.Eliminated) return a.Eliminated ? 1 : -1;
+                if (a.Eliminated && a.EliminatedAt != b.EliminatedAt) return b.EliminatedAt.CompareTo(a.EliminatedAt);
+                int ha = a.HouseId >= 0 ? a.HouseId : houses.Length + a.Id, hb = b.HouseId >= 0 ? b.HouseId : houses.Length + b.Id;
+                return ha.CompareTo(hb);
+            });
+            for (int i = 0; i < order.Count; i++) order[i].Placement = i + 1;
         }
         private bool ActivePlayer(int id, out PlayerState player)
         {

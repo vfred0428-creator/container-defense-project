@@ -111,7 +111,8 @@ namespace ContainerDefense.Domain
         {
             Boss.SlowRemaining = Math.Max(0,Boss.SlowRemaining - (float)dt);
             double remaining = dt;
-            for (int guard = 0; guard < 256 && remaining > 1e-9 && !Finished; guard++) {
+            // Stop as soon as an end condition is reached; the step end resolves it and nothing else lands.
+            for (int guard = 0; guard < 256 && remaining > 1e-9 && !Finished && !EndReached(); guard++) {
                 double now = clock - remaining;
                 Boss.Wave = 1 + (int)(Math.Max(0,now - rules.PreparationSeconds) / 60);
                 switch (Boss.Phase) {
@@ -171,10 +172,9 @@ namespace ContainerDefense.Domain
             visitAttacks++; target.AttacksReceived++;
             float damage = rules.BossDamage * (1 + (float)Math.Max(0,now - rules.PreparationSeconds) * rules.BossEnragePerSecond);
             target.Health = Math.Max(0,target.Health - damage); Emit(MatchEventKind.DoorHit,target.OwnerId,target.Id,damage);
-            if (target.Destroyed) Eliminate(players[target.OwnerId]);
+            if (target.Destroyed) Eliminate(players[target.OwnerId],now);
             if (target.Destroyed || visitAttacks >= MaxAttacksPerVisit) EndBossVisit(target,now);
             else Boss.AttackTimer = rules.BossAttackInterval;
-            if (LivingHouses() == 0) Finish(false);
         }
     }
 }

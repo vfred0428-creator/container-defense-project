@@ -3,6 +3,7 @@ using System;
 namespace ContainerDefense.Domain
 {
     public enum MatchPhase { Preparation, Combat, Victory, Defeat }
+    public enum MatchEndReason { None, BossDefeated, LastStanding, AllFallen }
     public enum BossPhase { Waiting, Selecting, Telegraphing, Travelling, Attacking, Recovery, Dead }
     public enum UpgradeKind { Bed, Door, Weapon }
     public enum MatchEventKind { Claimed, Sleeping, Upgraded, Shot, DoorHit, Eliminated, CombatStarted, Finished, UpgradeStarted, Placed, Moved, Sold, Repaired, RoutePlanned }
@@ -40,11 +41,14 @@ namespace ContainerDefense.Domain
         public float DamageDealt { get; internal set; }
         public float SurvivalSeconds { get; internal set; }
         public int UpgradesPurchased { get; internal set; }
+        // Match time of elimination (-1 while alive) and final placement (1 = best, 0 until the match ends).
+        public float EliminatedAt { get; internal set; }
+        public int Placement { get; internal set; }
         internal PlayerState(int id, bool bot, float gold, CharacterDefinition character)
         {
             Id = id; IsBot = bot; Name = id == 0 ? "You" : character.Name;
             Character = new CharacterPassive(character);
-            Gold = gold; HouseId = -1;
+            Gold = gold; HouseId = -1; EliminatedAt = -1;
             Position = new Point2((id - 2.5f) * 0.6f, -7);
         }
     }
