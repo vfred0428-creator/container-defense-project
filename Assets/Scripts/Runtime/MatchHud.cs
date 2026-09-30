@@ -98,7 +98,7 @@ namespace ContainerDefense
                 Portrait(Cut.Inset(face,4),p.Id == 0 ? session.Inventory.Equipped(p.Character.Id) : session.Collections.DefaultSkin(p.Character.Id),true);
                 GUI.color = old;
                 if (session.ViewedPlayer == p.Id) HudTheme.Ring(face);
-                var badge = new Rect(face.xMax - 44,face.yMax - 30,44,28);
+                var badge = new Rect(face.xMax - 58,face.yMax - 30,58,28);
                 HudTheme.Fill(badge,p.Eliminated ? HudTheme.DangerFill : p.Id == 0 ? HudTheme.PrimaryFill : HudTheme.SecondaryFill,10);
                 HudTheme.OutlinedText(badge,p.Eliminated ? "OUT" : p.HouseId >= 0 ? (p.HouseId + 1).ToString("00") : "--",HudTheme.Label,Color.white,TextAnchor.MiddleCenter);
                 float hp = p.HouseId < 0 || p.Eliminated ? 0 : m.Houses[p.HouseId].Health / m.Houses[p.HouseId].MaxHealth;

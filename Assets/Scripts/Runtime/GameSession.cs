@@ -51,6 +51,9 @@ namespace ContainerDefense
             gameObject.AddComponent<MatchHud>().Initialize(this);
             ResetMatch();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Screenshot pass: requires --smoke-test so the account file is isolated.
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--ui-shots") >= 0 && System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--smoke-test") >= 0)
+                gameObject.AddComponent<UiShotDriver>().Initialize(this);
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--smoke-test") >= 0 && System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--manual-test") < 0)
             {
                 if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--social-smoke-test") >= 0)

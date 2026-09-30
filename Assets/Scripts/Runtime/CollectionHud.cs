@@ -60,7 +60,7 @@ namespace ContainerDefense
             HudTheme.Text(Cut.Top(ref inner,68,4),character.Name,HudTheme.Title,HudTheme.Ink,true);
             HudTheme.Text(Cut.Top(ref inner,84,G),character.Description,HudTheme.Body,HudTheme.Gold,true,TextAnchor.UpperLeft,true);
             HudTheme.Text(Cut.Top(ref inner,72,G),unlocked ? "Unlocked permanently." : "Reach account level " + character.UnlockLevel + " to unlock.",HudTheme.Body,HudTheme.Ink,false,TextAnchor.UpperLeft,true);
-            HudTheme.Text(Cut.Top(ref inner,64),"Default skin  ·  Common\nCosmetics never change passives.",HudTheme.Label,HudTheme.Muted,false,TextAnchor.UpperLeft,true);
+            if (inner.height >= 32) HudTheme.Text(Cut.Top(ref inner,Mathf.Min(40,inner.height)),"Default skin  ·  Common",HudTheme.Label,HudTheme.Muted);
         }
         private void StickerCollection(Rect area)
         {

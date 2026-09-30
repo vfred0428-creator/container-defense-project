@@ -8,7 +8,7 @@ namespace ContainerDefense
     public sealed class ArenaView : MonoBehaviour
     {
         // Projected world scale. Houses use one uniform size so the art keeps its proportions.
-        private const float ScaleX = .8f, ScaleZ = .85f, RoadWidth = 1.6f, HouseSize = 5.4f, WeaponSize = 1.25f;
+        private const float ScaleX = .8f, ScaleZ = .85f, RoadWidth = 1.6f, HouseSize = 5.9f, WeaponSize = 1.25f;
         public Camera Camera { get; private set; }
         public CharacterPortraits Portraits { get; private set; }
         private MatchSimulation match;

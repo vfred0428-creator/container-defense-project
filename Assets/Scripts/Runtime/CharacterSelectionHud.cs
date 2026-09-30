@@ -46,7 +46,7 @@ namespace ContainerDefense
                 HudTheme.Panel(pill,false); HudTheme.Text(Cut.Inset(pill,12),message,HudTheme.Label,session.SaveDirty ? HudTheme.Bad : HudTheme.Gold,true,TextAnchor.MiddleCenter);
             }
             // Roster: seven cards, portraits kept inside their cards.
-            float cardWidth = Mathf.Min(260,(area.width - 6 * G) / 7), cardHeight = Mathf.Min(area.height,cardWidth + 150);
+            float cardWidth = Mathf.Min(260,Mathf.Min((area.width - 6 * G) / 7,area.height - 150)), cardHeight = Mathf.Min(area.height,cardWidth + 150);
             var row = Cut.Center(area,cardWidth * 7 + 6 * G,cardHeight);
             var cards = Cut.Row(row,7,G);
             for (int i = 0; i < 7; i++) {

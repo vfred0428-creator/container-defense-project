@@ -82,6 +82,9 @@ namespace ContainerDefense.Editor
         { BuildAt("Builds/Windows"); }
         public static void BuildMilestonePreview()
         { BuildAt("Builds/Milestones"); }
+        // Screenshot-only development build; never touches Builds/Windows.
+        public static void BuildUiPreview()
+        { BuildAt("TestResults/UI-Pass/preview-build"); }
         private static void BuildAt(string output)
         {
             RunChecks(); Directory.CreateDirectory(output);

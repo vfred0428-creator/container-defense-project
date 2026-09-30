@@ -36,7 +36,8 @@ namespace ContainerDefense
             var m = session.Match;
             var title = Cut.Top(ref r,44,8);
             HudTheme.Text(Cut.Left(ref title,190),"HOUSE " + (h.HouseId + 1).ToString("00"),HudTheme.CardTitle,HudTheme.Ink,true);
-            string tag = own ? (viewed.Sleeping ? "+" + m.Income(h.HouseId).ToString("0.#") + " gold/s" : "Awake") : viewed.Eliminated ? "Out" : m.Players[0].Eliminated ? "Spectating " + viewed.Name : viewed.Name + " · read only";
+            bool mine = viewed.Id == 0 && !m.Players[0].Eliminated;
+            string tag = !own && mine ? "Match over" : own ? (viewed.Sleeping ? "+" + m.Income(h.HouseId).ToString("0.#") + " gold/s" : "Awake") : viewed.Eliminated ? "Out" : m.Players[0].Eliminated ? "Spectating " + viewed.Name : viewed.Name + " · read only";
             HudTheme.Text(title,tag,HudTheme.Label,own && viewed.Sleeping ? HudTheme.Good : HudTheme.Muted,true,TextAnchor.MiddleRight);
             var hp = Cut.Top(ref r,32,16);
             HudIcons.Draw(Cut.Left(ref hp,32,8),"icon_heart");
