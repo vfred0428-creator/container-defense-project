@@ -95,7 +95,7 @@ public static class NeighborhoodTests
             BossPhase previous = m.Boss.Phase;
             for (int i = 0; i < 12000; i++) {
                 m.Tick(Step);
-                if (m.Boss.Phase == BossPhase.Telegraphing && previous != BossPhase.Telegraphing) { True(m.Elapsed >= previousVisitEnd + 18); if (hits > 0) revisits++; hits = 0; }
+                if (m.Boss.Phase == BossPhase.Telegraphing && previous != BossPhase.Telegraphing) { True(m.Elapsed >= previousVisitEnd + 18 - .001f); if (hits > 0) revisits++; hits = 0; }
                 previous = m.Boss.Phase;
             }
             True(revisits > 1);
@@ -113,7 +113,7 @@ public static class NeighborhoodTests
         Check("Route wave eligibility and authored telegraph duration are honored", () => {
             var map = MapDefinition.Default(); foreach (var r in map.Routes) r.MinimumWave = 2;
             map.Routes[2].MinimumWave = 1; map.Routes[2].TelegraphTime = 6;
-            var m = new MatchSimulation(Rules(),4,null,map); Claim(m,0,0); Advance(m,.2f);
+            var m = new MatchSimulation(Rules(),4,null,map); Claim(m,0,0); Claim(m,1,1); Claim(m,2,2); Advance(m,.2f);
             True(m.Boss.RouteId == "zig_zag"); True(m.Boss.TelegraphRemaining > 5.8f);
         });
         Check("Destroyed houses cannot be repaired, rebuilt, sold or re-claimed", () => {

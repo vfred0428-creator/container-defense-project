@@ -66,6 +66,10 @@ namespace ContainerDefense.Domain
         public double LastUpgradePaid { get; internal set; }
         public bool LastUpgradeDiscounted { get; internal set; }
         public bool Destroyed { get { return OwnerId >= 0 && Health <= 0; } }
+        // A living, claimed house whose owner is still in the match. Only these are ever attacked.
+        public bool Occupied { get { return OwnerId >= 0 && !Destroyed && !Vacated; } }
+        public bool Vacated { get; internal set; }
+        public int VisitsReceived { get; internal set; }
         public WeaponPlacement[] Weapons { get; private set; }
         public Point2 Center { get; private set; }
         public float ProtectedUntil { get; internal set; }
@@ -86,6 +90,7 @@ namespace ContainerDefense.Domain
         public int TargetHouseId { get; internal set; }
         public int EntryNode { get; internal set; }
         public string RouteId { get; internal set; }
+        public BossRouteKind RouteKind { get; internal set; }
         public int[] RouteHouses { get; internal set; }
         public Point2[] RoutePath { get; internal set; }
         public float TelegraphRemaining { get; internal set; }

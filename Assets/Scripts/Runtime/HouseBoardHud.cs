@@ -22,11 +22,11 @@ namespace ContainerDefense
             }
             var viewed = m.Players[session.ViewedPlayer];
             if (viewed.HouseId >= 0 && !session.Overview && buildOpen) {
-                var house = m.Houses[viewed.HouseId];
+                var house = session.ScoutView[viewed.HouseId];
                 for (int slot = 0; slot < 3; slot++) {
-                    Vector2 point = session.Arena.ScreenPoint(m.WeaponPoint(house.Id,slot)) / scale;
+                    Vector2 point = session.Arena.ScreenPoint(m.WeaponPoint(house.HouseId,slot)) / scale;
                     var r = new Rect(point.x - 34,point.y - 32,68,64);
-                    if (house.Weapons[slot] == null) Box(r,new Color(.2f,.38f,.42f,.7f));
+                    if (!house.Weapons[slot].Present) Box(r,new Color(.2f,.38f,.42f,.7f));
                     if (Button(new Rect(point.x - 28,point.y + 28,56,30),(slot + 1).ToString(),buildSlot == slot ? gold : muted,!session.Scouting)) {
                         if (movingSlot >= 0) { if (session.MoveWeapon(movingSlot,slot)) movingSlot = -1; }
                         buildSlot = slot;
@@ -84,48 +84,49 @@ namespace ContainerDefense
                 Label(new Rect(48,y + 24,width - 96,40),p.Eliminated ? "ELIMINATED / Tap a portrait to spectate" : "CHOOSE A FREE HOUSE",heading,cream);
                 Label(new Rect(48,y + 76,width - 96,46),"Tap a house to run and claim it. Or move with WASD and press E at its door. Twelve houses; one owner each.",body,muted); return;
             }
-            var h = m.Houses[p.HouseId]; bool own = !session.Scouting && !p.Eliminated && !m.Finished && !session.Paused;
-            Label(new Rect(48,y + 16,246,40),"HOUSE " + (h.Id + 1).ToString("00"),heading,cream);
+            // Scouting reads only the read-only view: no live house objects and no other player's exact gold.
+            var h = session.ScoutView[p.HouseId]; bool own = !session.Scouting && !p.Eliminated && !m.Finished && !session.Paused;
+            Label(new Rect(48,y + 16,246,40),"HOUSE " + (h.HouseId + 1).ToString("00"),heading,cream);
             Label(new Rect(48,y + 62,246,38),session.Scouting ? "VIEWING " + p.Name : "MY HOUSE",body,session.Scouting ? muted : gold);
             if (session.Scouting) Label(new Rect(48,y + 108,246,28),"READ ONLY",small,muted);
             else if (Button(new Rect(48,y + 104,246,32),p.Sleeping ? "SLEEPING / WAKE" : "SLEEP FOR GOLD",muted,own)) session.Interact();
             float x = 324, available = width - 374, card = (available - 36) / 4;
             Bar(new Rect(x,y + 16,available - 160,12),h.Health / h.MaxHealth,green);
             Label(new Rect(width - 196,y + 8,146,30),Mathf.CeilToInt(h.Health) + " / " + Mathf.CeilToInt(h.MaxHealth),body,cream);
-            int bed = m.UpgradeCost(h.Id,UpgradeKind.Bed), door = m.UpgradeCost(h.Id,UpgradeKind.Door);
-            if (Button(new Rect(x,y + 48,card,80),"BED " + (h.BedLevel + 1) + "\n" + (bed < 0 ? "MAX" : bed + " gold"),green,own && bed >= 0 && !h.IsBuilding)) session.Buy(UpgradeKind.Bed);
-            if (Button(new Rect(x + card + 12,y + 48,card,80),"DOOR " + (h.DoorLevel + 1) + "\n" + (door < 0 ? "MAX" : door + " gold"),green,own && door >= 0 && !h.IsBuilding)) session.Buy(UpgradeKind.Door);
+            int bed = m.UpgradeCost(h.HouseId,UpgradeKind.Bed), door = m.UpgradeCost(h.HouseId,UpgradeKind.Door);
+            if (Button(new Rect(x,y + 48,card,80),"BED " + (h.BedLevel + 1) + "\n" + (bed < 0 ? "MAX" : bed + " gold"),green,own && bed >= 0 && !h.Building)) session.Buy(UpgradeKind.Bed);
+            if (Button(new Rect(x + card + 12,y + 48,card,80),"DOOR " + (h.DoorLevel + 1) + "\n" + (door < 0 ? "MAX" : door + " gold"),green,own && door >= 0 && !h.Building)) session.Buy(UpgradeKind.Door);
             if (Button(new Rect(x + (card + 12) * 2,y + 48,card,80),buildOpen ? "CLOSE BUILD" : "BUILD",gold,own || session.Scouting)) { buildOpen = !buildOpen; movingSlot = -1; session.Overview = false; }
             if (Button(new Rect(x + (card + 12) * 3,y + 48,card,80),"REPAIR\n" + MatchSimulation.RepairCost + " gold",muted,own && h.Health < h.MaxHealth)) { if (!session.Repair()) session.Notify("Not enough gold, or a build is in progress."); }
-            if (h.IsBuilding) Label(new Rect(x,y - 32,500,25),"Building " + h.BuildingKind + " / " + h.BuildRemaining.ToString("0.0") + "s",small,gold);
+            if (h.Building) Label(new Rect(x,y - 32,500,25),"Building " + h.BuildingKind + " / " + h.BuildRemaining.ToString("0.0") + "s",small,gold);
             if (buildOpen) {
                 BuildPanel(h,own,y);
                 if (!string.IsNullOrEmpty(session.CurrentNotice)) Label(new Rect(346,y - 220,width - 380,32),session.CurrentNotice,small,gold);
             }
             else if (!string.IsNullOrEmpty(session.CurrentNotice)) { Box(new Rect(width / 2 - 350,y - 48,700,38),panel); Label(new Rect(width / 2 - 334,y - 40,668,28),session.CurrentNotice,small,gold); }
         }
-        private void BuildPanel(HouseState home,bool own,float bottom)
+        private void BuildPanel(HouseScout home,bool own,float bottom)
         {
             float y = bottom - 184; Box(new Rect(324,y,width - 348,168),panel);
             Label(new Rect(346,y + 12,550,30),session.Scouting ? "SCOUTING DEFENSES / READ ONLY" : movingSlot >= 0 ? "CHOOSE AN EMPTY DESTINATION SLOT" : "SELECT A ROOFTOP SOCKET",body,cream);
             for (int slot = 0; slot < 3; slot++) {
-                var w = home.Weapons[slot]; string text = (slot + 1) + ": " + (w == null ? "EMPTY" : WeaponCatalog.Get(w.Kind).Name + " Lv." + w.Level);
+                var w = home.Weapons[slot]; string text = (slot + 1) + ": " + (!w.Present ? "EMPTY" : WeaponCatalog.Get(w.Kind).Name + " Lv." + w.Level);
                 if (Button(new Rect(346 + slot * 212,y + 48,200,38),text,buildSlot == slot ? gold : muted)) {
                     if (movingSlot >= 0 && own && session.MoveWeapon(movingSlot,slot)) movingSlot = -1;
                     buildSlot = slot;
                 }
             }
             var selected = home.Weapons[buildSlot];
-            if (selected == null) {
+            if (!selected.Present) {
                 for (int i = 0; i < 4; i++) {
                     var d = WeaponCatalog.Get((WeaponKind)i); float w = (width - 408) / 4;
                     if (Button(new Rect(346 + i * (w + 6),y + 104,w,44),d.Name + " / " + d.Cost,gold,own)) { if (!session.PlaceWeapon(buildSlot,d.Id)) session.Notify("Cannot place: check gold, socket and current build."); }
                 }
             } else {
-                int cost = session.Match.WeaponUpgradeCost(home.Id,buildSlot);
+                int cost = session.Match.WeaponUpgradeCost(home.HouseId,buildSlot);
                 if (Button(new Rect(346,y + 104,240,44),selected.Building ? "BUILDING..." : cost < 0 ? "MAX LEVEL" : "UPGRADE / " + cost,green,own && cost >= 0 && !selected.Building)) session.UpgradeWeapon(buildSlot);
                 if (Button(new Rect(598,y + 104,180,44),"MOVE",muted,own && !selected.Building)) movingSlot = buildSlot;
-                if (Button(new Rect(790,y + 104,224,44),"SELL / " + System.Math.Floor(selected.Invested * .5),muted,own && !selected.Building)) { session.SellWeapon(buildSlot); movingSlot = -1; }
+                if (Button(new Rect(790,y + 104,224,44),own ? "SELL / " + session.Match.SellValue(home.HouseId,buildSlot) : "SELL",muted,own && !selected.Building)) { session.SellWeapon(buildSlot); movingSlot = -1; }
                 Label(new Rect(1034,y + 104,width - 1080,48),"Range " + WeaponCatalog.Get(selected.Kind).Range,small,muted);
             }
         }

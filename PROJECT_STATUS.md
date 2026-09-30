@@ -1,6 +1,17 @@
 # Container Defense — project status
 
-Updated 2026-09-29. Latest Photo 1–5 references define the 2D / 2.5D direction.
+Updated 2026-09-30. Latest Photo 1–5 references define the 2D / 2.5D direction.
+
+## 12-HOUSE NEIGHBORHOOD MILESTONE (Claude continuation of Astra's work, branch claude/continue-astra)
+- Fixed MapDefinition: 12 houses, 20 road nodes, orthogonal edges derived from geometry. Load validates connectivity, that route steps are road edges, that each house is within 7 units of a node, and a 4 s telegraph minimum. Pathing uses deterministic Dijkstra with lower-id tie-breaks.
+- Pure seeded BossRoutePlanner: only living occupied unprotected houses; least-visited first for fairness; ordered along the route; one other target before a repeat; 1–2 available houses fall back to Straight.
+- The boss clock carries leftover time across phases and starts exactly at the preparation deadline. Results match at 30/60/144 steps per second. Travel walks node by node with no corner cutting. Protection is 18 s of match time and starts at visit end.
+- Targets are re-checked every step and on arrival. A target that empties, dies or becomes protected before the first hit is skipped: no visit, no protection, and a fresh 4 s telegraph for the next target. If every house is protected, the boss waits (phase Waiting) until the first protection lapses, including with a lone survivor.
+- Commands go through PlayerCommands, bound by MatchSimulation.CommandsFor(id). GameSession and bots never pass an issuer id. Validation covers owner, slot 0–2, slot state, build state and personal wallet. Wallets saturate at 1e12. Sell refund is half of what was actually paid.
+- Scout(viewer) returns value-only HouseScout data. Other players' gold appears only as a coarse WealthBand. Bots and the HUD house board read it.
+- Elimination (house destroyed, or the new domain-only TryForfeit) vacates the house: its weapons stop, it is never targeted, and late commands are rejected. Finish is idempotent and cancels target, route and timers. Weapons resolve before boss attacks within a step.
+- Checks: 118 domain (Tools/Test-Core.ps1, incl. 21 new MatchContractTests) + 17 Unity persistence = 135 pass. Smoke + reload evidence: TestResults/M6-Neighborhood.
+- OPEN DECISION (vhi): the boss waits out protection on a lone survivor, so the match continues until the boss dies or the last house falls. No match timer was added.
 
 ## WORKING
 - M1 preserved: local human + five independent bots, six exclusive houses, movement/claiming, sleeping income, personal upgrades, boss targeting/damage, elimination, spectating, win/loss.

@@ -132,7 +132,7 @@ namespace ContainerDefense
             for (int h = 0; h < 12; h++) {
                 var home = match.Houses[h]; homes[h].color = home.Destroyed ? new Color(.38f,.39f,.45f) : Time.time < hitUntil[h] ? new Color(1,.62f,.62f) : Color.white;
                 for (int s = 0; s < 3; s++) {
-                    var w = home.Weapons[s]; var render = weapons[h,s]; render.gameObject.SetActive(playing && w != null && !home.Destroyed);
+                    var w = home.Weapons[s]; var render = weapons[h,s]; render.gameObject.SetActive(playing && w != null && home.Occupied);
                     if (w != null) {
                         render.sprite = atlas[WeaponCatalog.Get(w.Kind).SpriteIndex]; render.transform.position = Project(match.WeaponPoint(h,s));
                         render.transform.localScale = Vector3.one * (w.Building ? 1.25f : 1.8f);
@@ -141,7 +141,7 @@ namespace ContainerDefense
                         render.transform.rotation = Quaternion.Euler(0,0,Mathf.Clamp(-Mathf.Atan2(direction.x,Mathf.Abs(direction.y) + 2) * Mathf.Rad2Deg,-50,50));
                         if (Time.time < fireUntil[h,s]) render.transform.position -= direction.normalized * .1f;
                     }
-                    shots[h,s].enabled = playing && w != null && !home.Destroyed && Time.time < fireUntil[h,s];
+                    shots[h,s].enabled = playing && w != null && home.Occupied && Time.time < fireUntil[h,s];
                     if (shots[h,s].enabled) { shots[h,s].SetPosition(0,render.transform.position); shots[h,s].SetPosition(1,Project(match.Boss.Position)); }
                 }
             }

@@ -20,7 +20,10 @@ namespace ContainerDefense.Domain
         public IReadOnlyList<HouseState> Houses { get; private set; }
         public BossState Boss { get; private set; }
         public MatchPhase Phase { get; private set; }
-        public float Elapsed { get; private set; }
+        // Match time is accumulated in double precision so boss timing matches across step sizes.
+        private double clock;
+        public float Elapsed { get { return (float)clock; } }
+        public const double MaxWallet = 1e12;
         public float CombatSeconds { get { return Math.Max(0, Elapsed - rules.PreparationSeconds); } }
         public float PreparationRemaining { get { return Math.Max(0, rules.PreparationSeconds - Elapsed); } }
         public bool Finished { get { return Phase == MatchPhase.Victory || Phase == MatchPhase.Defeat; } }
@@ -40,6 +43,7 @@ namespace ContainerDefense.Domain
                     !MatchRules.Finite(definition.Bonus) || definition.Bonus < 0 || definition.Bonus > 1)
                     throw new ArgumentException("Invalid match character.");
                 players[i] = new PlayerState(i, i != 0, rules.StartingGold, definition);
+                players[i].Gold = Math.Min(MaxWallet, players[i].Gold);
                 players[i].Position = map.Spawn(i);
                 purchaseRandom[i] = new Random(unchecked(seed * 397 + i * 31 + 17));
             }
@@ -123,7 +127,7 @@ namespace ContainerDefense.Domain
             PlayerState p;
             if (!ActivePlayer(playerId, out p) || !ValidHouse(houseId) || !ValidKind(kind)) return false;
             HouseState h = houses[houseId]; int cost = UpgradeCost(houseId, kind);
-            if (p.HouseId != houseId || h.OwnerId != playerId || h.Destroyed || h.IsBuilding || cost < 0 || p.Gold < cost) return false;
+            if (p.HouseId != houseId || h.OwnerId != playerId || !h.Occupied || h.IsBuilding || cost < 0 || !CanDebit(p,cost)) return false;
             // Require the listed price first, so rejected requests cannot fish for discounts.
             bool discounted = p.Character.DiscountChance > 0 && purchaseRandom[playerId].NextDouble() < p.Character.DiscountChance;
             double paid = discounted ? cost * 0.5 : cost;
@@ -155,9 +159,12 @@ namespace ContainerDefense.Domain
         public void Tick(float seconds)
         {
             if (Finished || !ValidStep(seconds)) return;
-            Elapsed += seconds;
-            if (Phase == MatchPhase.Preparation && PreparationRemaining <= 0)
+            clock += seconds;
+            double combatStep = seconds;
+            if (Phase == MatchPhase.Preparation && clock >= rules.PreparationSeconds)
             {
+                // The boss clock starts exactly at the deadline, not at the first step boundary after it.
+                combatStep = clock - rules.PreparationSeconds;
                 Phase = MatchPhase.Combat; Boss.Phase = BossPhase.Selecting;
                 foreach (PlayerState p in players) if (p.HouseId < 0) Eliminate(p);
                 Emit(MatchEventKind.CombatStarted);
@@ -176,39 +183,57 @@ namespace ContainerDefense.Domain
                 if (p.Sleeping && p.HouseId >= 0)
                 {
                     double income = Income(p.HouseId) * seconds;
-                    p.Gold += income; p.GoldEarned += income;
+                    Credit(p,income); p.GoldEarned = Math.Min(MaxWallet,p.GoldEarned + income);
                 }
             }
+            // Same-step ordering is fixed: weapons resolve before boss attacks, so a boss killed
+            // this step never lands a pending hit and a simultaneous finish is always a victory.
             TickWeapons(seconds);
             if (Finished) return;
             if (Phase != MatchPhase.Combat) return;
-            TickBoss(seconds);
+            TickBossRoute(combatStep);
         }
 
-        private void TickBoss(float seconds)
+        // Wallet arithmetic saturates at MaxWallet and never accepts nonfinite or negative credits.
+        private static bool CanCredit(PlayerState p,double amount)
+        { return !double.IsNaN(amount) && !double.IsInfinity(amount) && amount >= 0 && p.Gold + amount <= MaxWallet; }
+        private static void Credit(PlayerState p,double amount)
+        { if (!double.IsNaN(amount) && !double.IsInfinity(amount) && amount > 0) p.Gold = Math.Min(MaxWallet,p.Gold + amount); }
+        private static bool CanDebit(PlayerState p,double amount)
+        { return !double.IsNaN(amount) && !double.IsInfinity(amount) && amount > 0 && p.Gold >= amount; }
+
+        // Leaving eliminates the issuer; the house is vacated and never attacked again.
+        public bool TryForfeit(int playerId)
         {
-            TickBossRoute(seconds);
+            PlayerState p; if (!ActivePlayer(playerId, out p)) return false;
+            Eliminate(p); if (Phase == MatchPhase.Combat && LivingHouses() == 0) Finish(false);
+            return true;
         }
-
         public int LivingHouses()
         {
             int count = 0;
-            foreach (HouseState h in houses) if (h.OwnerId >= 0 && !h.Destroyed) count++;
+            foreach (HouseState h in houses) if (h.Occupied) count++;
             return count;
         }
         private void Eliminate(PlayerState p)
         {
-            p.Eliminated = true; p.Sleeping = false; p.SurvivalSeconds = Elapsed;
+            if (p.Eliminated) return;
+            p.Eliminated = true; p.Sleeping = false; p.SurvivalSeconds = Elapsed; navigation[p.Id] = null;
             if (p.HouseId >= 0) {
-                var h = houses[p.HouseId]; h.IsBuilding = false; h.BuildRemaining = 0;
+                // The house is vacated: its weapons stop and the boss never targets it again.
+                var h = houses[p.HouseId]; h.IsBuilding = false; h.BuildRemaining = 0; h.Vacated = true;
                 foreach (var w in h.Weapons) if (w != null) w.BuildRemaining = 0;
             }
             Emit(MatchEventKind.Eliminated, p.Id, p.HouseId);
         }
         private void Finish(bool victory)
         {
+            if (Finished) return;
             Phase = victory ? MatchPhase.Victory : MatchPhase.Defeat;
             foreach (PlayerState p in players) p.Sleeping = false;
+            // Cancel anything pending so no hit, telegraph or timer survives the result.
+            Boss.Phase = victory ? BossPhase.Dead : BossPhase.Waiting; Boss.TargetHouseId = -1; Boss.AttackTimer = 0;
+            Boss.TelegraphRemaining = 0; Boss.RecoveryRemaining = 0; Boss.RouteHouses = new int[0]; Boss.RoutePath = new Point2[0];
             Emit(MatchEventKind.Finished);
         }
         private bool ActivePlayer(int id, out PlayerState player)

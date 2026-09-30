@@ -32,6 +32,9 @@ namespace ContainerDefense
         private LocalGiftService gifts;
         private long matchSequence;
         private LocalBotController bots;
+        // The local player's issuer is bound here; HUD code never supplies a player id.
+        private PlayerCommands commands;
+        public HouseScout[] ScoutView { get { return commands.Scout(); } }
         private IPlayerInput input;
         private MatchConfig config;
         private float accumulated, noticeUntil;
@@ -67,7 +70,7 @@ namespace ContainerDefense
             for (int i = 1; i < 6; i++) roster[i] = Characters.Get((CharacterId)(((int)Account.Selected + i) % 7));
             var mapConfig = Resources.Load<MapConfig>("FixedMap");
             Match = new MatchSimulation(config != null ? config.Rules : new MatchRules(), 731 + matchNumber++, roster,mapConfig != null ? mapConfig.Definition : MapDefinition.Default());
-            Match.Changed += OnMatchEvent;
+            Match.Changed += OnMatchEvent; commands = Match.CommandsFor(0);
             bots = new LocalBotController(Match);
             accumulated = 0; SpectatedPlayer = inspectedPlayer = 0; walkingTo = -1; Overview = true; Paused = false;
             Arena.Bind(Match,Collections.Skin(Inventory.Equipped(Account.Selected))); Notify("Run to a free door. Press E to claim it.");
@@ -88,11 +91,11 @@ namespace ContainerDefense
         public void ReturnToOwnHouse() { inspectedPlayer = 0; Overview = Match.Players[0].HouseId < 0; }
         public void WalkToHouse(int house)
         { if (Started && !Paused && !Scouting && house >= 0 && house < Match.Houses.Count && Match.Players[0].HouseId < 0) walkingTo = house; }
-        public bool PlaceWeapon(int slot,WeaponKind kind) { return CanBuild && Match.TryPlaceWeapon(0,Match.Players[0].HouseId,slot,kind); }
-        public bool UpgradeWeapon(int slot) { return CanBuild && Match.TryUpgradeWeapon(0,Match.Players[0].HouseId,slot); }
-        public bool MoveWeapon(int from,int to) { return CanBuild && Match.TryMoveWeapon(0,Match.Players[0].HouseId,from,to); }
-        public bool SellWeapon(int slot) { return CanBuild && Match.TrySellWeapon(0,Match.Players[0].HouseId,slot); }
-        public bool Repair() { return CanBuild && Match.TryRepair(0,Match.Players[0].HouseId); }
+        public bool PlaceWeapon(int slot,WeaponKind kind) { return CanBuild && commands.Place(slot,kind); }
+        public bool UpgradeWeapon(int slot) { return CanBuild && commands.Upgrade(slot); }
+        public bool MoveWeapon(int from,int to) { return CanBuild && commands.MoveWeapon(from,to); }
+        public bool SellWeapon(int slot) { return CanBuild && commands.Sell(slot); }
+        public bool Repair() { return CanBuild && commands.Repair(); }
         private bool CanBuild { get { return Started && !Paused && !Match.Finished && !Scouting && !Match.Players[0].Eliminated; } }
 
         private void InitializeAccount()
@@ -174,11 +177,11 @@ namespace ContainerDefense
             while (accumulated >= Step)
             {
                 if (walkingTo >= 0 && Match.Players[0].HouseId < 0) {
-                    Match.Navigate(0,Match.Houses[walkingTo].Entry,Step);
-                    if (Match.TryClaim(0,walkingTo)) { walkingTo = -1; Match.TryToggleSleep(0); }
+                    commands.Navigate(Match.Houses[walkingTo].Entry,Step);
+                    if (commands.Claim(walkingTo)) { walkingTo = -1; commands.ToggleSleep(); }
                     else if (Match.Houses[walkingTo].OwnerId >= 0) { walkingTo = -1; Notify("That house was claimed. Choose another free door."); }
                 }
-                else if (!Scouting) Match.Move(0, move.x, move.y, Step);
+                else if (!Scouting) commands.Move(move.x, move.y, Step);
                 bots.Tick(Step); Match.Tick(Step); accumulated -= Step;
             }
             if (Match.Players[0].Eliminated && Match.Players[SpectatedPlayer].Eliminated) CycleSpectator();
@@ -203,12 +206,12 @@ namespace ContainerDefense
             PlayerState p = Match.Players[0];
             if (p.HouseId >= 0)
             {
-                if (!Match.TryToggleSleep(0)) Notify("Return to your door to get into bed.");
+                if (!commands.ToggleSleep()) Notify("Return to your door to get into bed.");
                 return;
             }
             int house = NearbyHouse();
             if (house < 0) { Notify("Move closer to a container door."); return; }
-            if (!Match.TryClaim(0, house)) Notify("Already claimed. Find another free house.");
+            if (!commands.Claim(house)) Notify("Already claimed. Find another free house.");
         }
 
         public void Buy(UpgradeKind kind)
@@ -216,7 +219,7 @@ namespace ContainerDefense
             if (!Started || Paused || Match.Finished || Scouting) return;
             int home = Match.Players[0].HouseId;
             if (home < 0 || Match.Players[0].Eliminated) return;
-            if (!Match.TryUpgrade(0, home, kind)) Notify(Match.Houses[home].IsBuilding ? "An upgrade is already building." : "Not enough gold, or this upgrade is at its maximum.");
+            if (!commands.UpgradeHouse(kind)) Notify(Match.Houses[home].IsBuilding ? "An upgrade is already building." : "Not enough gold, or this upgrade is at its maximum.");
         }
 
         public void CycleSpectator()

@@ -11,6 +11,7 @@ $taskSources += Join-Path $taskRoot 'Assets\Tests\Editor\CollectionTests.cs'
 $taskSources += Join-Path $taskRoot 'Assets\Tests\Editor\SocialTests.cs'
 $taskSources += Join-Path $taskRoot 'Assets\Tests\Editor\RankingTests.cs'
 $taskSources += Join-Path $taskRoot 'Assets\Tests\Editor\NeighborhoodTests.cs'
+$taskSources += Join-Path $taskRoot 'Assets\Tests\Editor\MatchContractTests.cs'
 $taskExe = Join-Path $taskOutput 'CoreTests.exe'
 & $taskCompiler /nologo /warnaserror+ /optimize+ /target:exe "/out:$taskExe" $taskSources
 if ($LASTEXITCODE -ne 0) { throw 'Core compilation failed.' }
