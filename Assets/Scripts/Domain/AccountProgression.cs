@@ -6,9 +6,10 @@ namespace ContainerDefense.Domain
     [Serializable]
     public sealed class AccountData
     {
-        public int Version = 3;
+        public int Version = 4;
         public CollectionData Collection;
         public SocialData Social;
+        public RankData Rank;
         public long TotalXp;
         public int Level = 1;
         public string SelectedCharacter = "milo";
@@ -42,11 +43,13 @@ namespace ContainerDefense.Domain
         private readonly CollectionCatalog collections;
         internal readonly object SocialGate = new object();
         private MatchSimulation activeMatch;
+        private bool activeRanked;
         public long TotalXp { get { return data.TotalXp; } }
         public int Level { get { return data.Level; } }
         public CharacterId Selected { get; private set; }
         public InventorySystem Inventory { get; private set; }
         public SocialData Social { get { return SocialState.Copy(data.Social,collections); } }
+        public RankData Rank { get { return RankProgression.Normalize(data.Rank); } }
         public long XpInLevel { get { return TotalXp - rules.XpForLevel(Level); } }
         public int XpNeeded { get { return Level <= rules.XpToNextLevel.Length ? rules.XpToNextLevel[Level - 1] : 0; } }
         public bool IsUnlocked(CharacterId id) { return unlocked.Contains(id); }
@@ -57,11 +60,12 @@ namespace ContainerDefense.Domain
             catalog = characters;
             rules = settings.Snapshot();
             saved = saved ?? new AccountData();
-            if (saved.Version < 1 || saved.Version > 3) throw new ArgumentException("Unsupported save version.");
+            if (saved.Version < 1 || saved.Version > 4) throw new ArgumentException("Unsupported save version.");
             this.collections = collections ?? CollectionCatalog.CreateDefault();
             Inventory = new InventorySystem(saved.Collection,this.collections);
             data = new AccountData {
                 Social = SocialState.Copy(saved.Social,this.collections),
+                Rank = RankProgression.Normalize(saved.Rank),
                 TotalXp = Math.Max(0,Math.Min(1000000000,saved.TotalXp)),
                 MatchesStarted = Math.Max(0,Math.Min(long.MaxValue - 1,saved.MatchesStarted))
             };
@@ -75,12 +79,12 @@ namespace ContainerDefense.Domain
         }
         public bool Select(CharacterId id)
         { if (!IsUnlocked(id)) return false; Selected = id; return true; }
-        public long BeginMatch(MatchSimulation match)
+        public long BeginMatch(MatchSimulation match,bool practiceRanked = false)
         {
             if (match == null || match.Finished || match.Elapsed != 0 || ReferenceEquals(match,activeMatch))
                 throw new ArgumentException("Start rewards with a new, unplayed match.");
             if (data.MatchesStarted == long.MaxValue) throw new InvalidOperationException("Match sequence exhausted.");
-            activeMatch = match;
+            activeMatch = match; activeRanked = practiceRanked;
             return ++data.MatchesStarted;
         }
         public bool TryAward(MatchSimulation match, long sequence, out MatchReward reward)
@@ -90,6 +94,7 @@ namespace ContainerDefense.Domain
             data.LastRewardedSequence = sequence;
             data.Social.Profile.Matches = data.Social.Profile.Matches == long.MaxValue ? long.MaxValue : data.Social.Profile.Matches + 1;
             if (match.Phase == MatchPhase.Victory && !match.Players[0].Eliminated && data.Social.Profile.Wins < long.MaxValue) data.Social.Profile.Wins++;
+            if (activeRanked) data.Rank = RankProgression.ApplyResult(data.Rank,match.Phase == MatchPhase.Victory && !match.Players[0].Eliminated);
             int xp = rules.Reward(match), before = Level;
             data.TotalXp = Math.Min(1000000000,data.TotalXp + xp); data.Level = rules.Level(data.TotalXp);
             reward = new MatchReward { Xp = xp, PreviousLevel = before, NewLevel = Level, Unlocked = UnlockForLevel() };
@@ -111,9 +116,11 @@ namespace ContainerDefense.Domain
             for (int i = 0; i < 7; i++) if (IsUnlocked((CharacterId)i)) keys.Add(CharacterCatalog.Key((CharacterId)i));
             return new AccountData { TotalXp = TotalXp, Level = Level, SelectedCharacter = CharacterCatalog.Key(Selected),
                 UnlockedCharacters = keys.ToArray(), MatchesStarted = data.MatchesStarted, LastRewardedSequence = data.LastRewardedSequence,
-                Collection = Inventory.Snapshot(), Social = Social };
+                Collection = Inventory.Snapshot(), Social = Social, Rank = Rank };
         }
         internal void AdoptSocial(AccountData saved)
         { Inventory = new InventorySystem(saved.Collection,collections); data.Social = SocialState.Copy(saved.Social,collections); }
+        public void SaveTo(ISaveService storage)
+        { lock (SocialGate) { storage.Save(Snapshot()); } }
     }
 }

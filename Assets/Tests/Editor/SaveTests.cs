@@ -65,6 +65,11 @@ public static class SaveTests
             var oversized = socialRecovery.Snapshot(); oversized.Collection.OwnedSkins = new string[1]; oversized.Collection.OwnedSkins[0] = new string('x',1100000);
             bool tooLarge = false; try { socialStore.Save(oversized); } catch (IOException) { tooLarge = true; }
             Assert(tooLarge && File.ReadAllText(socialPath) == "interrupted social write"); count++;
+            var rankedSave = socialRecovery.Snapshot(); rankedSave.Rank = new RankData { CurrentRank = RankTier.Champion,HighestRank = RankTier.Celestial,Stars = 3,RankPoints = 210,Season = 2,Wins = 7,MatchesPlayed = 12 };
+            socialStore.Save(rankedSave);
+            var rankedReload = new AccountProgression(new LocalSaveService(socialPath).Load(),new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());
+            Assert(rankedReload.Rank.CurrentRank == RankTier.Champion && rankedReload.Rank.HighestRank == RankTier.Celestial && rankedReload.Rank.Stars == 3 &&
+                rankedReload.Rank.RankPoints == 210 && rankedReload.Rank.Season == 2 && rankedReload.Rank.Wins == 7 && rankedReload.Rank.MatchesPlayed == 12 && rankedReload.Social.History.Length == 1); count++;
             Console.WriteLine("PASS " + count + " persistence scenarios: roundtrip, replacement, backup, corruption, future versions, write failure, atomic gifts and size limits.");
             return count + " persistence scenarios passed.";
         }

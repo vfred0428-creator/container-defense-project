@@ -17,9 +17,15 @@ namespace ContainerDefense
             Label(new Rect(444,36,310,30),"Lv. " + account.Level + "   " + account.Social.Profile.Username,body,cream);
             Label(new Rect(444,72,290,24),account.XpInLevel + " / " + account.XpNeeded + " XP",small,muted);
             Bar(new Rect(444,101,310,5),account.XpNeeded == 0 ? 1 : (float)account.XpInLevel / account.XpNeeded,new Color(.25f,.62f,1));
+            if (GUI.Button(new Rect(344,24,440,88),GUIContent.none,GUIStyle.none)) OpenSocial(0);
+            Box(new Rect(804,24,220,88),panel);
+            Label(new Rect(824,38,180,30),account.Rank.CurrentRank.ToString(),heading,cream);
+            Label(new Rect(824,78,180,22),account.Rank.Stars + " / 5 stars",small,gold);
+            if (GUI.Button(new Rect(804,24,220,88),GUIContent.none,GUIStyle.none)) OpenRanked();
             Box(new Rect(width - 328,24,304,88),panel);
             Label(new Rect(width - 308,38,266,28),session.Inventory.Charisma.ToString("N0") + "  CHARISMA",heading,gold);
-            Label(new Rect(width - 308,77,266,24),"Solo survival  /  six residents",small,muted);
+            int unread = SocialState.Unread(account.Social);
+            if (Button(new Rect(width - 308,74,264,28),unread > 0 ? "GIFT INBOX (" + unread + ")" : "PROFILE & GIFTS",muted)) OpenSocial(unread > 0 ? 2 : 0);
             float step = (width - 48) / 7, y = height - 425;
             for (int i = 0; i < 7; i++)
             {
@@ -42,11 +48,11 @@ namespace ContainerDefense
                 Label(new Rect(width / 2 - 290,148,580,26),locked.Name + ": reach Account Level " + locked.UnlockLevel + "  /  " + passiveNames[(int)inspected],body,cream);
             }
             float navY = height - 88;
-            if (Button(new Rect(24,navY,230,64),"COLLECTION",new Color(.58f,.68f,.97f))) OpenCollection(account.Selected);
-            if (Button(new Rect(266,navY,230,64),"STICKERS",new Color(1,.52f,.71f))) ShowStickers();
-            int unread = SocialState.Unread(account.Social);
-            if (Button(new Rect(508,navY,230,64),unread > 0 ? "INBOX (" + unread + ")" : "PROFILE & GIFTS",new Color(.7f,.64f,.96f))) OpenSocial(unread > 0 ? 2 : 0);
-            Label(new Rect(758,navY + 6,width - 1140,54),"WASD: move\nE: claim / sleep",small,cream);
+            float navWidth = (width - 436) / 4;
+            if (Button(new Rect(24,navY,navWidth,64),"RANKED",new Color(.7f,.64f,.96f))) OpenRanked();
+            if (Button(new Rect(36 + navWidth,navY,navWidth,64),"LEADERBOARD",new Color(.58f,.68f,.97f))) OpenLeaderboards(LeaderboardKind.Ranked);
+            if (Button(new Rect(48 + navWidth * 2,navY,navWidth,64),"STICKERS",new Color(1,.52f,.71f))) ShowStickers();
+            if (Button(new Rect(60 + navWidth * 3,navY,navWidth,64),"INVENTORY",new Color(.4f,.85f,.78f))) OpenCollection(account.Selected);
             if (Button(new Rect(width - 364,navY,340,64),"PLAY  >",gold)) session.Play();
             if (session.SaveDirty) Label(new Rect(24,131,width - 48,26),session.SaveStatus,small,red);
         }

@@ -52,7 +52,7 @@ namespace ContainerDefense
             width = Screen.width / scale; height = Screen.height / scale;
             GUI.matrix = Matrix4x4.TRS(Vector3.zero,Quaternion.identity,Vector3.one * scale);
             session.Arena.DrawLabels();
-            if (!session.Started) { if (socialOpen) SocialScreen(); else if (collectionOpen) CollectionScreen(); else TitleScreen(); return; }
+            if (!session.Started) { if (rankedOpen) RankedScreen(); else if (socialOpen) SocialScreen(); else if (collectionOpen) CollectionScreen(); else TitleScreen(); return; }
             HouseInterior(); TopBar(); BottomBar(); RoomButton();
             if (session.Paused) PauseScreen();
             else if (session.Match.Finished) Results();
@@ -76,7 +76,7 @@ namespace ContainerDefense
             Box(new Rect(center - 265,22,530,88),panel);
             bool prep = m.Phase == MatchPhase.Preparation;
             string target = m.Boss.TargetHouseId >= 0 ? "  /  TARGET " + (m.Boss.TargetHouseId + 1).ToString("00") : "";
-            Label(new Rect(center - 245,34,490,26),prep ? (p.HouseId < 0 ? "CLAIM A HOME" : "PREPARE YOUR HOUSE") : "WAVE 1" + target,heading,prep ? gold : Color.white);
+            Label(new Rect(center - 245,34,490,26),prep ? (p.HouseId < 0 ? "CLAIM A HOME" : "PREPARE YOUR HOUSE") : (session.PracticeRanked ? "PRACTICE RANKED" : "WAVE 1") + target,heading,prep ? gold : Color.white);
             Bar(new Rect(center - 245,73,490,13),m.Boss.Health / m.Boss.MaxHealth,red);
             Box(new Rect(width - 323,22,222,88),panel);
             Label(new Rect(width - 305,32,185,32),((int)p.Gold).ToString("N0") + "  GOLD",heading,gold);
@@ -169,7 +169,8 @@ namespace ContainerDefense
                 var account = session.Account;
                 Bar(new Rect(x + 40,y + 450,500,9),account.XpNeeded == 0 ? 1 : (float)account.XpInLevel / account.XpNeeded,green);
             }
-            if (Button(new Rect(x + 40,y + 485,500,55),"PLAY AGAIN",gold)) session.Play();
+            if (session.PracticeRanked) Label(new Rect(x + 40,y + 462,500,21),"PRACTICE RANKED / " + session.Account.Rank.CurrentRank + " / " + session.Account.Rank.Stars + " stars",small,cream);
+            if (Button(new Rect(x + 40,y + 485,500,55),"PLAY AGAIN",gold)) { if (session.PracticeRanked) session.PlayRanked(); else session.Play(); }
             if (Button(new Rect(x + 40,y + 555,500,36),"CHARACTER SELECTION",new Color(0.65f,0.75f,0.87f))) session.ReturnToTitle();
         }
         private void Overlay() { Color old = GUI.color; GUI.color = new Color(0.015f,0.025f,0.06f,0.75f); GUI.DrawTexture(new Rect(0,0,width,height),Texture2D.whiteTexture); GUI.color = old; }
@@ -182,7 +183,7 @@ namespace ContainerDefense
         private bool Button(Rect r, string text, Color color, bool enabled = true)
         {
             bool oldEnabled = GUI.enabled; Color oldColor = GUI.backgroundColor;
-            GUI.enabled = enabled; GUI.backgroundColor = enabled ? color : new Color(0.35f,0.4f,0.48f);
+            GUI.enabled = oldEnabled && enabled; GUI.backgroundColor = GUI.enabled ? color : new Color(0.35f,0.4f,0.48f);
             bool clicked = GUI.Button(r,text,button); GUI.backgroundColor = oldColor; GUI.enabled = oldEnabled; return clicked;
         }
         private void Bar(Rect r, float ratio, Color color)

@@ -136,7 +136,7 @@ namespace ContainerDefense.Domain
                     return same ? new GiftResult { Success = true, AlreadyDelivered = true, Message = "Already delivered. No additional stickers spent." } : GiftResult.Fail("Transaction ID already used for another gift.");
                 }
                 var sticker = catalog.Sticker(request.StickerId);
-                if (request.Quantity <= 0 || sticker == null) return GiftResult.Fail("Choose a valid sticker and a positive whole quantity.");
+                if (request.Quantity <= 0 || sticker == null || sticker.GiftValue <= 0) return GiftResult.Fail("Choose a valid sticker and a positive whole quantity.");
                 if (senderId == request.ReceiverId) return GiftResult.Fail("Choose another recipient.");
                 LocalRecipient sender = Find(state,senderId), receiver = Find(state,request.ReceiverId);
                 bool fromOwner = senderId == state.Profile.PlayerId, toOwner = request.ReceiverId == state.Profile.PlayerId;

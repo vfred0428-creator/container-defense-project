@@ -13,7 +13,7 @@ namespace ContainerDefense
         private GiftRequest pendingGift;
         private GUIStyle entry;
         public void OpenSocial(int tab)
-        { socialOpen = true; collectionOpen = false; socialTab = tab; profileName = session.Account.Social.Profile.Username; socialMessage = ""; }
+        { rankedOpen = false; socialOpen = true; collectionOpen = false; socialTab = tab; profileName = session.Account.Social.Profile.Username; socialMessage = ""; }
         public void CloseSocial() { socialOpen = false; }
         private void SocialScreen()
         {
@@ -21,6 +21,7 @@ namespace ContainerDefense
             var state = session.Account.Social;
             if (entry == null) { entry = new GUIStyle(GUI.skin.textField) { font = body.font, fontSize = 22, padding = new RectOffset(14,14,9,9) }; }
             if (stickerIcons == null) stickerIcons = new StickerIcons();
+            bool reviewing = pendingGift != null; GUI.enabled = !reviewing;
             Box(new Rect(24,24,width - 48,108),panel);
             Label(new Rect(48,40,650,55),"YOUR NEIGHBORHOOD",title,cream);
             Label(new Rect(48,99,width - 100,24),"Local social prototype. Practice inboxes are stored on this device; online gifting is not connected.",small,muted);
@@ -31,6 +32,8 @@ namespace ContainerDefense
             Label(new Rect(40,height - 108,width - 80,42),socialMessage,body,socialSuccess ? green : red);
             Label(new Rect(40,height - 57,width - 264,38),session.SaveDirty ? session.SaveStatus : "Rank = survival  /  Charisma = collection  /  Popularity = gifts received",small,muted);
             if (session.SaveDirty && Button(new Rect(width - 210,height - 62,176,42),"RETRY SAVE",gold)) session.PersistAccount();
+            GUI.enabled = true;
+            if (pendingGift != null) GiftConfirmation(state);
         }
         private void ProfilePanel(SocialData state)
         {
@@ -39,6 +42,7 @@ namespace ContainerDefense
             Portrait(new Rect(64,top + 16,300,300),session.Inventory.Equipped(session.Account.Selected),false);
             Label(new Rect(52,top + 330,328,38),session.Account.Selected + " / Default",heading,gold);
             Label(new Rect(52,top + 382,328,66),"Level " + session.Account.Level + "\n" + session.Account.XpInLevel + " / " + session.Account.XpNeeded + " XP",body,cream);
+            Label(new Rect(52,top + 462,328,68),"Rank: " + session.Account.Rank.CurrentRank + "\nBest: " + session.Account.Rank.HighestRank,body,muted);
             float x = 424, w = width - 448;
             Box(new Rect(x,top,w,contentHeight),panel);
             Label(new Rect(x + 24,top + 24,w - 48,32),"PLAYER PROFILE",heading,cream);
@@ -94,13 +98,28 @@ namespace ContainerDefense
             if (Button(new Rect(controlsX + 398,top + 302,50,50),"+",muted)) { giftQuantity = (quantity < long.MaxValue ? Math.Max(1,quantity + 1) : quantity).ToString(CultureInfo.InvariantCulture); pendingGift = null; }
             if (Button(new Rect(controlsX + 460,top + 302,120,50),"MAX",muted)) { giftQuantity = session.Inventory.Quantity(giftSticker).ToString(CultureInfo.InvariantCulture); pendingGift = null; }
             valid = long.TryParse(giftQuantity,NumberStyles.None,CultureInfo.InvariantCulture,out quantity) && quantity > 0 && quantity <= session.Inventory.Quantity(giftSticker);
-            if (Button(new Rect(controlsX,top + 370,580,62),"SEND GIFT",new Color(1,.52f,.71f),valid && !session.SaveDirty))
+            if (Button(new Rect(controlsX,top + 370,580,62),"REVIEW GIFT",new Color(1,.52f,.71f),valid && !session.SaveDirty))
             {
                 if (pendingGift == null) pendingGift = new GiftRequest { TransactionId = Guid.NewGuid().ToString("N"),ReceiverId = giftRecipient,StickerId = giftSticker,Quantity = quantity };
+                socialMessage = "";
+            }
+            Label(new Rect(controlsX,top + 448,580,40),valid ? "Stickers leave your inventory after delivery." : "Enter a whole number between 1 and your owned quantity.",small,muted);
+        }
+        private void GiftConfirmation(SocialData state)
+        {
+            Overlay(); float x = width / 2 - 340, y = height / 2 - 184;
+            Box(new Rect(x,y,680,368),panel);
+            Label(new Rect(x + 28,y + 24,624,44),"SEND THIS GIFT?",heading,cream);
+            var sticker = session.Collections.Sticker(pendingGift.StickerId);
+            Label(new Rect(x + 28,y + 82,624,110),pendingGift.Quantity.ToString("N0") + " × " + (sticker == null ? pendingGift.StickerId : sticker.Name) +
+                "\nTo " + SocialState.Name(state,pendingGift.ReceiverId) + "\nThis local transfer removes copies from your inventory.",body,cream);
+            Label(new Rect(x + 28,y + 200,624,64),socialMessage,small,red);
+            if (Button(new Rect(x + 28,y + 288,228,52),"CANCEL",muted)) pendingGift = null;
+            if (Button(new Rect(x + 280,y + 288,372,52),"CONFIRM GIFT",new Color(1,.52f,.71f),pendingGift != null))
+            {
                 var result = session.SendGift(pendingGift); SocialFeedback(result);
                 if (result.Success) { pendingGift = null; giftQuantity = "1"; }
             }
-            Label(new Rect(controlsX,top + 448,580,40),valid ? "Stickers leave your inventory after delivery." : "Enter a whole number between 1 and your owned quantity.",small,muted);
         }
         private void HistoryPanel(SocialData state)
         {

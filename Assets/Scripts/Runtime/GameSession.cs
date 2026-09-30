@@ -9,6 +9,8 @@ namespace ContainerDefense
         public MatchSimulation Match { get; private set; }
         public bool Started { get; private set; }
         public bool Paused { get; private set; }
+        public bool PracticeRanked { get; private set; }
+        public ILeaderboardService Leaderboards { get; private set; }
         public int SpectatedPlayer { get; private set; }
         public string Notice { get; private set; }
         public ArenaView Arena { get; private set; }
@@ -41,7 +43,7 @@ namespace ContainerDefense
             gameObject.AddComponent<MatchHud>().Initialize(this);
             ResetMatch();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--smoke-test") >= 0)
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--smoke-test") >= 0 && System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--manual-test") < 0)
             {
                 if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--social-smoke-test") >= 0)
                     gameObject.AddComponent<SocialSmokeDriver>().Initialize(this);
@@ -65,9 +67,11 @@ namespace ContainerDefense
             Arena.Bind(Match,Collections.Skin(Inventory.Equipped(Account.Selected))); Notify("Run to a free door. Press E to claim it.");
         }
 
-        public void Play()
+        public void Play() { StartMatch(false); }
+        public void PlayRanked() { StartMatch(true); }
+        private void StartMatch(bool ranked)
         {
-            ResetMatch(); matchSequence = Account.BeginMatch(Match); PersistAccount(); LastReward = null;
+            ResetMatch(); PracticeRanked = ranked; matchSequence = Account.BeginMatch(Match,ranked); PersistAccount(); LastReward = null;
             Started = true;
         }
         public void ReturnToTitle() { Started = false; ResetMatch(); }
@@ -96,6 +100,7 @@ namespace ContainerDefense
 #endif
             saves = new LocalSaveService(AccountPath);
             Account = new AccountProgression(saves.Load(),Characters,Progression,Collections);
+            Leaderboards = new LocalLeaderboardService(Account,Collections);
             gifts = new LocalGiftService(Account,Collections,saves,Account.Social.Profile.PlayerId,
                 () => (long)(System.DateTime.UtcNow - new System.DateTime(1970,1,1)).TotalSeconds);
             SaveStatus = string.IsNullOrEmpty(saves.Status) ? "Account saves automatically on this device" : saves.Status;
@@ -133,7 +138,7 @@ namespace ContainerDefense
             SaveDirty = true;
             try
             {
-                saves.Save(Account.Snapshot()); SaveDirty = false; SaveStatus = saves.Status;
+                Account.SaveTo(saves); SaveDirty = false; SaveStatus = saves.Status;
             }
             catch (System.Exception e) when (e is System.IO.IOException || e is System.UnauthorizedAccessException)
             { SaveStatus = "Progress is in memory only. " + (saves.CanWrite ? "Could not write account; retry saving." : saves.Status); }

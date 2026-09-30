@@ -19,11 +19,12 @@ Updated 2026-09-29. Latest Photo 1–5 references define the 2D / 2.5D direction
 - One boss encounter (Wave 1), no expanded wave system. Local simulation only; no online multiplayer or server authority.
 - M4 local prototype implemented: profile names/IDs, match stats, multi-copy gifting, separate Popularity, receipts, unread inbox and paginated history. Practice inboxes are explicitly local; no online friends or backend connection.
 - Gift authority validates quantities, sender binding, capacity/overflow and idempotency; debit + credit + Popularity + receipt share one atomic save. The 1,000-receipt local ledger fails closed when full. Cloud auth, cross-device concurrency, anti-abuse and online delivery remain future work.
-- M5 ranked progression and leaderboards are next.
+- M5 local prototype working: eight solo rank tiers, five-star promotions, tier floors, highest rank, points/season/stats persistence, distinct casual and Practice Ranked entry points, and separate local Ranked/Charisma/Popularity row tables.
 
 ## BROKEN
 - No observed compile errors or failing checks at this checkpoint.
-- Latest milestone preview: 83 checks pass (19 core + 16 progression + 16 collection + 16 social + 16 persistence), no C# warnings.
+- Latest milestone preview: 96 checks pass (19 core + 16 progression + 16 collection + 16 social + 12 ranking + 17 persistence), no C# warnings.
+- M5 full rendered match and separate-process reload pass: claiming, timed upgrades, combat, victory/elimination, once-only rank/profile results, XP/unlock persistence and all three leaderboard views.
 - M4 rendered smoke and separate-process reload pass at 1440x900 / 1280x720: profile, ten-copy transfer, replay protection, incoming notification, Popularity, history and in-match gate. Screenshots reviewed.
 - Rendered collection and full-match tests pass, including separate-process account/collection reloads. Screenshots checked at 1440x900 and 1280x720.
 - Final UI draw-order correction manually verified through collection navigation and locked Yume inspection. Test accounts stayed isolated.
@@ -34,18 +35,19 @@ Updated 2026-09-29. Latest Photo 1–5 references define the 2D / 2.5D direction
 - Alternate-skin offerings retired. Do not reintroduce them or improve the old 3D characters.
 
 ## NEXT
-1. M5: solo Rookie–Sovereign rank prototype and separate clean ranked/Charisma leaderboards; clearly distinguish local data from live service data.
-2. Review Claude's delegated gifting audit and ranking recommendation; integrate applicable findings without changing the user's fixed passives or adding unrequested level gates.
+1. Latest 2026-09-30 brief supersedes the six-house presentation: migrate to a fixed high-angle 12-house map, route graph, boss target protection, visible weapon sockets and read-only scouting.
+2. Claude completed a gifting audit and ranking recommendation. Applied confirmation/retry identity, one save lock, overflow checks and practice labels. See Tools/Claude-Review-Handoff.md for reviewed findings and deferred policy suggestions.
 3. Continue 2D animation/frame cleanup, attack readability, mobile HUD/input, sound hooks and texture/device profiling.
 4. Platform interfaces only; no store SDKs or purchases yet.
 
 ## Handoff
 - Scene: Assets/Scenes/ContainerYard.unity. GameSession constructs the view; domain gameplay is independent of Unity rendering.
 - Active art: Assets/Resources/Art2D. Generation method and exact prompts: Tools/2D-Artwork-Prompts.md.
-- Save filename: account-v1.json, payload version 3 (migrates v1/v2). Profile/recipient balances/receipts live together in the envelope. Do not reset real accounts or erase unknown ownership.
+- Save filename: account-v1.json, payload version 4 (migrates v1/v2/v3). Profile/recipient balances/receipts/rank live together in the envelope. Do not reset real accounts or erase unknown ownership.
 - Build: Tools/Build-Windows.ps1 -> Builds/Windows/ContainerDefense.exe.
 - Parallel preview build: Tools/Build-Windows.ps1 -MilestonePreview -> Builds/Milestones/ContainerDefense.exe, preserving the user's open older executable. Do not run both builds against the same real save concurrently.
 - M4 evidence: TestResults/M4-Social/{result,reload-result}.txt and screenshots. Smoke runs use isolated account paths.
+- M5 evidence: TestResults/M5-Ranked/{result,reload-result}.txt and screenshots.
 - Domain checks: Tools/Test-Core.ps1.
 - Evidence: TestResults/Pivot-Stable-Collection/{result,reload-result}.txt and TestResults/Pivot-Stable-Match/{result,reload-result}.txt; latest compiler log TestResults/unity-build.log.
 - Run smoke players visibly for screenshots. Hidden-window runs produce black captures even when the simulation passes.

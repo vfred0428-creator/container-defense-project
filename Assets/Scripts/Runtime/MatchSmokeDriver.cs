@@ -30,8 +30,10 @@ namespace ContainerDefense
             if (index >= 0 && index + 1 < args.Length) output = Path.GetFullPath(args[index + 1]);
             Directory.CreateDirectory(output);
             yield return new WaitForSecondsRealtime(2);
+            bool ranked = Array.IndexOf(args,"--ranked-smoke-test") >= 0;
             if (Array.IndexOf(args,"--smoke-reload-only") >= 0)
             {
+                if (ranked && (session.Account.Rank.MatchesPlayed != 2 || session.Account.Social.Profile.Matches != 2)) { Fail("Rank or profile statistics did not survive restart."); yield break; }
                 if (session.Account.Selected != CharacterId.Lumi || session.Account.Level < 3 ||
                     !session.Account.IsUnlocked(CharacterId.Lumi) || session.Account.TotalXp <= 0 || session.SaveDirty)
                 { Fail("Account did not survive a process restart."); yield break; }
@@ -47,7 +49,18 @@ namespace ContainerDefense
             long initialXp = session.Account.TotalXp;
             if (session.SelectCharacter(CharacterId.Yume) && !session.Account.IsUnlocked(CharacterId.Yume))
             { Fail("Locked character selected."); yield break; }
-            session.Play();
+            if (ranked)
+            {
+                var hud = session.GetComponent<MatchHud>(); hud.OpenRanked(); yield return new WaitForEndOfFrame();
+                ScreenCapture.CaptureScreenshot(Path.Combine(output,"00-ranked.png")); yield return new WaitForSecondsRealtime(.5f);
+                foreach (LeaderboardKind board in Enum.GetValues(typeof(LeaderboardKind)))
+                {
+                    hud.OpenLeaderboards(board); yield return new WaitForEndOfFrame();
+                    ScreenCapture.CaptureScreenshot(Path.Combine(output,"00-board-" + board + ".png")); yield return new WaitForSecondsRealtime(.5f);
+                }
+                hud.CloseRanked(); session.PlayRanked();
+            }
+            else session.Play();
             var match = session.Match;
             float deadline = Time.realtimeSinceStartup + 20;
             while (match.Players[0].Position.Distance(match.Houses[0].Entry) > 0.2f && Time.realtimeSinceStartup < deadline)
@@ -90,6 +103,7 @@ namespace ContainerDefense
             yield return new WaitForSecondsRealtime(0.5f);
             if (session.LastReward == null || session.LastReward.Xp <= 0 || session.Account.TotalXp <= initialXp || session.SaveDirty)
             { Fail("Match XP was not awarded and saved."); yield break; }
+            if (ranked && (session.Account.Rank.MatchesPlayed != 1 || session.Account.Social.Profile.Matches != 1)) { Fail("Ranked match receipt failed."); yield break; }
             long rewardedXp = session.Account.TotalXp;
             session.ReturnToTitle();
             if (session.Account.IsUnlocked(CharacterId.Lumi))
@@ -101,7 +115,7 @@ namespace ContainerDefense
             }
             ScreenCapture.CaptureScreenshot(Path.Combine(output,"05-character-unlock.png"));
             yield return new WaitForSecondsRealtime(.5f);
-            session.Play();
+            if (ranked) session.PlayRanked(); else session.Play();
             if (session.Match.Elapsed != 0 || session.Match.Players[0].HouseId != -1)
             { Fail("Restart did not reset the match."); yield break; }
             // A second match deliberately misses the claim deadline to verify spectator UI.
@@ -122,6 +136,7 @@ namespace ContainerDefense
             ScreenCapture.CaptureScreenshot(Path.Combine(output,"07-eliminated.png"));
             yield return new WaitForSecondsRealtime(0.5f);
             if (session.Account.TotalXp != rewardedXp) { Fail("Unclaimed spectator received XP."); yield break; }
+            if (ranked && (session.Account.Rank.MatchesPlayed != 2 || session.Account.Social.Profile.Matches != 2)) { Fail("Ranked elimination result failed."); yield break; }
             File.WriteAllText(Path.Combine(output,"result.txt"),errors == 0 ? "PASS: character selection, claim, sleep, timed upgrade, pause, combat, XP reward, saved XP/unlock/selection, restart, elimination, spectating. No runtime errors." : "FAIL: runtime errors = " + errors);
             Application.Quit(errors == 0 ? 0 : 1);
         }

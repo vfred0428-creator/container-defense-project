@@ -52,7 +52,7 @@ namespace ContainerDefense
         public void Save(AccountData account)
         {
             if (!CanWrite) throw new IOException(Status);
-            if (account == null || account.Version < 1 || account.Version > 3) throw new ArgumentException("Invalid account snapshot.");
+            if (account == null || account.Version < 1 || account.Version > 4) throw new ArgumentException("Invalid account snapshot.");
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             string payload = JsonUtility.ToJson(account);
             string text = JsonUtility.ToJson(new Envelope { Payload = payload, Checksum = Hash(payload) },true);
@@ -84,7 +84,7 @@ namespace ContainerDefense
             if (envelope == null || envelope.Format != 1 || string.IsNullOrEmpty(envelope.Payload) || envelope.Checksum != Hash(envelope.Payload))
                 throw new IOException("Invalid account checksum.");
             AccountData account = JsonUtility.FromJson<AccountData>(envelope.Payload);
-            if (account != null && account.Version > 3) throw new NewerSaveException();
+            if (account != null && account.Version > 4) throw new NewerSaveException();
             if (account == null || account.Version < 1 || account.TotalXp < 0 || account.UnlockedCharacters == null)
                 throw new IOException("Invalid account data.");
             SocialState.Copy(account.Social,CollectionCatalog.CreateDefault());

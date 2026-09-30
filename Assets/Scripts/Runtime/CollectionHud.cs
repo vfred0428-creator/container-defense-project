@@ -12,10 +12,10 @@ namespace ContainerDefense
         private StickerIcons stickerIcons;
         public void OpenCollection(CharacterId character)
         {
-            socialOpen = false; collectionOpen = true; stickerTab = false; collectionCharacter = character;
+            rankedOpen = false; socialOpen = false; collectionOpen = true; stickerTab = false; collectionCharacter = character;
             previewSkin = session.Inventory.Equipped(character);
         }
-        public void ShowStickers() { socialOpen = false; collectionOpen = true; stickerTab = true; }
+        public void ShowStickers() { rankedOpen = false; socialOpen = false; collectionOpen = true; stickerTab = true; }
         public void CloseCollection() { collectionOpen = false; }
         private void CollectionScreen()
         {
