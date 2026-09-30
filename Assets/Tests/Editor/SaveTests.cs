@@ -49,7 +49,23 @@ public static class SaveTests
             collectionStore.Save(collectionReload.Snapshot()); File.WriteAllText(collectionPath,"interrupted write");
             var collectionRecovery = new AccountProgression(new LocalSaveService(collectionPath).Load(),new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());
             Assert(collectionRecovery.Inventory.Quantity("bunny") == 3000000052L && collectionRecovery.Inventory.Equipped(CharacterId.Kiko) == "kiko_default" && collectionRecovery.Inventory.Charisma == 100); count++;
-            Console.WriteLine("PASS " + count + " persistence scenarios: roundtrip, replacement, backup, corruption, future versions, write failure.");
+            string socialPath = Path.Combine(directory,"social.json");
+            var socialStore = new LocalSaveService(socialPath);
+            var socialAccount = new AccountProgression(null,new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());
+            socialAccount.Inventory.ClaimStarter(); socialStore.Save(socialAccount.Snapshot());
+            var gifts = new LocalGiftService(socialAccount,CollectionCatalog.CreateDefault(),socialStore,socialAccount.Social.Profile.PlayerId,() => 1790683200L);
+            var request = new GiftRequest { TransactionId = Guid.NewGuid().ToString("N"),ReceiverId = "local_a",StickerId = "bunny",Quantity = 10 };
+            Assert(gifts.Send(request).Success);
+            var socialReload = new AccountProgression(new LocalSaveService(socialPath).Load(),new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());
+            Assert(socialReload.Inventory.Quantity("bunny") == 42 && socialReload.Social.Recipients[0].Popularity == 10 && socialReload.Social.History.Length == 1); count++;
+            Assert(new LocalGiftService(socialReload,CollectionCatalog.CreateDefault(),socialStore,socialReload.Social.Profile.PlayerId,() => 1790683200L).Send(request).AlreadyDelivered); count++;
+            socialStore.Save(socialReload.Snapshot()); File.WriteAllText(socialPath,"interrupted social write");
+            var socialRecovery = new AccountProgression(new LocalSaveService(socialPath).Load(),new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());
+            Assert(socialRecovery.Inventory.Quantity("bunny") == 42 && socialRecovery.Social.Recipients[0].Collection.Stickers[0].QuantityOwned == 10 && socialRecovery.Social.History.Length == 1); count++;
+            var oversized = socialRecovery.Snapshot(); oversized.Collection.OwnedSkins = new string[1]; oversized.Collection.OwnedSkins[0] = new string('x',1100000);
+            bool tooLarge = false; try { socialStore.Save(oversized); } catch (IOException) { tooLarge = true; }
+            Assert(tooLarge && File.ReadAllText(socialPath) == "interrupted social write"); count++;
+            Console.WriteLine("PASS " + count + " persistence scenarios: roundtrip, replacement, backup, corruption, future versions, write failure, atomic gifts and size limits.");
             return count + " persistence scenarios passed.";
         }
         finally

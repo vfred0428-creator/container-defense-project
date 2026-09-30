@@ -12,10 +12,10 @@ namespace ContainerDefense
         private StickerIcons stickerIcons;
         public void OpenCollection(CharacterId character)
         {
-            collectionOpen = true; stickerTab = false; collectionCharacter = character;
+            socialOpen = false; collectionOpen = true; stickerTab = false; collectionCharacter = character;
             previewSkin = session.Inventory.Equipped(character);
         }
-        public void ShowStickers() { collectionOpen = true; stickerTab = true; }
+        public void ShowStickers() { socialOpen = false; collectionOpen = true; stickerTab = true; }
         public void CloseCollection() { collectionOpen = false; }
         private void CollectionScreen()
         {
@@ -97,6 +97,8 @@ namespace ContainerDefense
             Label(new Rect(211,y + 62,width - 260,27),"Owned: x" + session.Inventory.Quantity(selected.StickerId).ToString("N0") + "  /  Collection value: " + selected.CharismaValue + " Charisma",body,Color.white);
             Label(new Rect(211,y + 104,width - 260,46),(selected.Animated ? "Animated" : "Static") + "  /  " + (selected.Limited ? "Limited collection" : "Standard collection") +
                 "\nEach owned sticker type counts once toward Charisma.",small,muted);
+            if (Button(new Rect(width - 300,y + 16,252,42),"GIFT STICKERS",new Color(1,.52f,.71f)))
+            { giftSticker = selected.StickerId; OpenSocial(1); }
         }
     }
 }

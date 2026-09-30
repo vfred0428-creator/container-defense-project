@@ -52,7 +52,7 @@ namespace ContainerDefense
             width = Screen.width / scale; height = Screen.height / scale;
             GUI.matrix = Matrix4x4.TRS(Vector3.zero,Quaternion.identity,Vector3.one * scale);
             session.Arena.DrawLabels();
-            if (!session.Started) { if (collectionOpen) CollectionScreen(); else TitleScreen(); return; }
+            if (!session.Started) { if (socialOpen) SocialScreen(); else if (collectionOpen) CollectionScreen(); else TitleScreen(); return; }
             HouseInterior(); TopBar(); BottomBar(); RoomButton();
             if (session.Paused) PauseScreen();
             else if (session.Match.Finished) Results();

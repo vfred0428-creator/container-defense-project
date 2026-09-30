@@ -71,16 +71,20 @@ namespace ContainerDefense.Editor
 
         [MenuItem("Container Defense/Build Windows Playtest")]
         public static void BuildWindows()
+        { BuildAt("Builds/Windows"); }
+        public static void BuildMilestonePreview()
+        { BuildAt("Builds/Milestones"); }
+        private static void BuildAt(string output)
         {
-            RunChecks(); Directory.CreateDirectory("Builds/Windows");
+            RunChecks(); Directory.CreateDirectory(output);
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions {
-                scenes = new[] { ScenePath }, locationPathName = "Builds/Windows/ContainerDefense.exe",
+                scenes = new[] { ScenePath }, locationPathName = output + "/ContainerDefense.exe",
                 target = BuildTarget.StandaloneWindows64, options = BuildOptions.Development
             });
             if (report.summary.result != BuildResult.Succeeded)
                 throw new System.Exception("Windows build failed: " + report.summary.result);
-            Directory.CreateDirectory("Builds/Windows/Licenses");
-            File.Copy("Assets/Resources/Fonts/OFL.txt","Builds/Windows/Licenses/Nunito-OFL.txt",true);
+            Directory.CreateDirectory(output + "/Licenses");
+            File.Copy("Assets/Resources/Fonts/OFL.txt",output + "/Licenses/Nunito-OFL.txt",true);
             Debug.Log("Windows playtest built successfully: " + report.summary.totalSize + " bytes.");
         }
     }

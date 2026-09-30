@@ -22,6 +22,7 @@ namespace ContainerDefense
         public string AccountPath { get; private set; }
         public bool SaveDirty { get; private set; }
         private ISaveService saves;
+        private LocalGiftService gifts;
         private long matchSequence;
         private LocalBotController bots;
         private IPlayerInput input;
@@ -42,7 +43,9 @@ namespace ContainerDefense
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--smoke-test") >= 0)
             {
-                if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--collection-smoke-test") >= 0)
+                if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--social-smoke-test") >= 0)
+                    gameObject.AddComponent<SocialSmokeDriver>().Initialize(this);
+                else if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "--collection-smoke-test") >= 0)
                     gameObject.AddComponent<CollectionSmokeDriver>().Initialize(this);
                 else gameObject.AddComponent<MatchSmokeDriver>().Initialize(this);
             }
@@ -93,6 +96,8 @@ namespace ContainerDefense
 #endif
             saves = new LocalSaveService(AccountPath);
             Account = new AccountProgression(saves.Load(),Characters,Progression,Collections);
+            gifts = new LocalGiftService(Account,Collections,saves,Account.Social.Profile.PlayerId,
+                () => (long)(System.DateTime.UtcNow - new System.DateTime(1970,1,1)).TotalSeconds);
             SaveStatus = string.IsNullOrEmpty(saves.Status) ? "Account saves automatically on this device" : saves.Status;
         }
         public bool SelectCharacter(CharacterId id)
@@ -109,6 +114,19 @@ namespace ContainerDefense
         {
             if (Started || !Inventory.ClaimStarter()) return false;
             PersistAccount(); return true;
+        }
+        public GiftResult SendGift(GiftRequest request)
+        { return SocialAction(() => gifts.Send(request)); }
+        public GiftResult RenameProfile(string name)
+        { return SocialAction(() => gifts.Rename(name)); }
+        public GiftResult ReadGiftInbox()
+        { return SocialAction(() => gifts.MarkRead()); }
+        private GiftResult SocialAction(System.Func<GiftResult> action)
+        {
+            if (Started) return GiftResult.Fail("Return home before editing your collection.");
+            if (SaveDirty) return GiftResult.Fail("Save your pending progress first, then retry.");
+            var result = action(); if (result.Success) SaveStatus = saves.Status;
+            return result;
         }
         public void PersistAccount()
         {

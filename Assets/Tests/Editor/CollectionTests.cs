@@ -73,7 +73,7 @@ public static class CollectionTests
         Check("Version-one accounts migrate without losing XP, unlocks or selection",() => {
             var a = new AccountProgression(new AccountData { Version = 1, TotalXp = 1000, SelectedCharacter = "kiko", UnlockedCharacters = new[] { "milo","lumi","kiko","yume" } },new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());
             Assert(a.TotalXp == 1000 && a.Selected == CharacterId.Kiko && a.IsUnlocked(CharacterId.Yume) && a.Inventory.SkinsOwned == 7);
-            Assert(a.Snapshot().Version == 2 && a.Snapshot().Collection != null);
+            Assert(a.Snapshot().Version == 3 && a.Snapshot().Collection != null);
         });
         Check("Collection actions leave gameplay progression and all personal passives untouched",() => {
             var a = new AccountProgression(null,new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules());

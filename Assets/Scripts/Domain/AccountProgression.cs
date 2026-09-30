@@ -6,8 +6,9 @@ namespace ContainerDefense.Domain
     [Serializable]
     public sealed class AccountData
     {
-        public int Version = 2;
+        public int Version = 3;
         public CollectionData Collection;
+        public SocialData Social;
         public long TotalXp;
         public int Level = 1;
         public string SelectedCharacter = "milo";
@@ -38,11 +39,14 @@ namespace ContainerDefense.Domain
         private readonly ProgressionRules rules;
         private readonly HashSet<CharacterId> unlocked = new HashSet<CharacterId>();
         private readonly AccountData data;
+        private readonly CollectionCatalog collections;
+        internal readonly object SocialGate = new object();
         private MatchSimulation activeMatch;
         public long TotalXp { get { return data.TotalXp; } }
         public int Level { get { return data.Level; } }
         public CharacterId Selected { get; private set; }
         public InventorySystem Inventory { get; private set; }
+        public SocialData Social { get { return SocialState.Copy(data.Social,collections); } }
         public long XpInLevel { get { return TotalXp - rules.XpForLevel(Level); } }
         public int XpNeeded { get { return Level <= rules.XpToNextLevel.Length ? rules.XpToNextLevel[Level - 1] : 0; } }
         public bool IsUnlocked(CharacterId id) { return unlocked.Contains(id); }
@@ -53,9 +57,11 @@ namespace ContainerDefense.Domain
             catalog = characters;
             rules = settings.Snapshot();
             saved = saved ?? new AccountData();
-            if (saved.Version < 1 || saved.Version > 2) throw new ArgumentException("Unsupported save version.");
-            Inventory = new InventorySystem(saved.Collection,collections ?? CollectionCatalog.CreateDefault());
+            if (saved.Version < 1 || saved.Version > 3) throw new ArgumentException("Unsupported save version.");
+            this.collections = collections ?? CollectionCatalog.CreateDefault();
+            Inventory = new InventorySystem(saved.Collection,this.collections);
             data = new AccountData {
+                Social = SocialState.Copy(saved.Social,this.collections),
                 TotalXp = Math.Max(0,Math.Min(1000000000,saved.TotalXp)),
                 MatchesStarted = Math.Max(0,Math.Min(long.MaxValue - 1,saved.MatchesStarted))
             };
@@ -82,6 +88,8 @@ namespace ContainerDefense.Domain
             reward = null;
             if (match == null || !ReferenceEquals(match,activeMatch) || !match.Finished || sequence <= data.LastRewardedSequence || sequence != data.MatchesStarted) return false;
             data.LastRewardedSequence = sequence;
+            data.Social.Profile.Matches = data.Social.Profile.Matches == long.MaxValue ? long.MaxValue : data.Social.Profile.Matches + 1;
+            if (match.Phase == MatchPhase.Victory && !match.Players[0].Eliminated && data.Social.Profile.Wins < long.MaxValue) data.Social.Profile.Wins++;
             int xp = rules.Reward(match), before = Level;
             data.TotalXp = Math.Min(1000000000,data.TotalXp + xp); data.Level = rules.Level(data.TotalXp);
             reward = new MatchReward { Xp = xp, PreviousLevel = before, NewLevel = Level, Unlocked = UnlockForLevel() };
@@ -103,7 +111,9 @@ namespace ContainerDefense.Domain
             for (int i = 0; i < 7; i++) if (IsUnlocked((CharacterId)i)) keys.Add(CharacterCatalog.Key((CharacterId)i));
             return new AccountData { TotalXp = TotalXp, Level = Level, SelectedCharacter = CharacterCatalog.Key(Selected),
                 UnlockedCharacters = keys.ToArray(), MatchesStarted = data.MatchesStarted, LastRewardedSequence = data.LastRewardedSequence,
-                Collection = Inventory.Snapshot() };
+                Collection = Inventory.Snapshot(), Social = Social };
         }
+        internal void AdoptSocial(AccountData saved)
+        { Inventory = new InventorySystem(saved.Collection,collections); data.Social = SocialState.Copy(saved.Social,collections); }
     }
 }

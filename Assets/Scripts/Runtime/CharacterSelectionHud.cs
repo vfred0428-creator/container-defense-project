@@ -14,7 +14,7 @@ namespace ContainerDefense
             Label(new Rect(44,72,270,43),"DEFENSE",brand,gold);
             Box(new Rect(344,24,440,88),panel);
             Portrait(new Rect(352,30,76,72),session.Inventory.Equipped(account.Selected),true);
-            Label(new Rect(444,36,310,30),"Lv. " + account.Level + "   " + account.Selected,heading,cream);
+            Label(new Rect(444,36,310,30),"Lv. " + account.Level + "   " + account.Social.Profile.Username,body,cream);
             Label(new Rect(444,72,290,24),account.XpInLevel + " / " + account.XpNeeded + " XP",small,muted);
             Bar(new Rect(444,101,310,5),account.XpNeeded == 0 ? 1 : (float)account.XpInLevel / account.XpNeeded,new Color(.25f,.62f,1));
             Box(new Rect(width - 328,24,304,88),panel);
@@ -44,7 +44,9 @@ namespace ContainerDefense
             float navY = height - 88;
             if (Button(new Rect(24,navY,230,64),"COLLECTION",new Color(.58f,.68f,.97f))) OpenCollection(account.Selected);
             if (Button(new Rect(266,navY,230,64),"STICKERS",new Color(1,.52f,.71f))) ShowStickers();
-            Label(new Rect(526,navY + 6,width - 930,54),"Choose your resident. Claim your own home.\nWASD to move / E to claim and sleep.",small,cream);
+            int unread = SocialState.Unread(account.Social);
+            if (Button(new Rect(508,navY,230,64),unread > 0 ? "INBOX (" + unread + ")" : "PROFILE & GIFTS",new Color(.7f,.64f,.96f))) OpenSocial(unread > 0 ? 2 : 0);
+            Label(new Rect(758,navY + 6,width - 1140,54),"WASD: move\nE: claim / sleep",small,cream);
             if (Button(new Rect(width - 364,navY,340,64),"PLAY  >",gold)) session.Play();
             if (session.SaveDirty) Label(new Rect(24,131,width - 48,26),session.SaveStatus,small,red);
         }
