@@ -62,26 +62,30 @@ namespace ContainerDefense
             }
             else session.Play();
             var match = session.Match;
+            var matchHud = session.GetComponent<MatchHud>();
+            yield return new WaitForSecondsRealtime(.5f);
+            ScreenCapture.CaptureScreenshot(Path.Combine(output,"01a-twelve-house-overview.png"));
+            session.WalkToHouse(0);
             float deadline = Time.realtimeSinceStartup + 20;
-            while (match.Players[0].Position.Distance(match.Houses[0].Entry) > 0.2f && Time.realtimeSinceStartup < deadline)
-            {
-                var position = match.Players[0].Position; var target = match.Houses[0].Entry;
-                match.Move(0,target.X - position.X,target.Z - position.Z,1f / 30);
-                yield return null;
-            }
-            session.Interact(); session.Interact();
+            while (match.Players[0].HouseId < 0 && Time.realtimeSinceStartup < deadline) yield return null;
             if (match.Players[0].HouseId != 0 || !match.Players[0].Sleeping)
             { Fail("Claim / sleep interaction failed."); yield break; }
+            if (!session.PlaceWeapon(0,WeaponKind.Gatling)) { Fail("Initial weapon placement failed."); yield break; }
+            yield return new WaitForSecondsRealtime(2);
+            if (!session.MoveWeapon(0,2) || !session.MoveWeapon(2,0)) { Fail("Weapon move failed."); yield break; }
+            session.Scout(1);
+            if (session.PlaceWeapon(1,WeaponKind.Gatling) || session.UpgradeWeapon(0) || session.MoveWeapon(0,2) || session.SellWeapon(0) || session.Repair()) { Fail("Scouting allowed mutation."); yield break; }
+            matchHud.ShowBuildBoard(true);
+            yield return new WaitForSecondsRealtime(.8f);
+            ScreenCapture.CaptureScreenshot(Path.Combine(output,"02a-readonly-scout.png"));
+            yield return new WaitForSecondsRealtime(.5f);
+            session.ReturnToOwnHouse();
             session.Buy(UpgradeKind.Bed);
             session.TogglePause(); float pausedAt = match.Elapsed;
             yield return new WaitForSecondsRealtime(0.25f);
             if (match.Elapsed != pausedAt) { Fail("Pause failed."); yield break; }
             session.TogglePause();
-            session.GetComponent<MatchHud>().RoomOpen = true;
-            yield return new WaitForEndOfFrame();
-            ScreenCapture.CaptureScreenshot(Path.Combine(output,"02a-interior.png"));
-            yield return new WaitForSecondsRealtime(.5f);
-            session.GetComponent<MatchHud>().RoomOpen = false;
+            yield return new WaitForSecondsRealtime(.8f);
             ScreenCapture.CaptureScreenshot(Path.Combine(output,"02-house.png"));
             yield return new WaitForSecondsRealtime(0.5f);
             Time.timeScale = 5;
@@ -90,11 +94,18 @@ namespace ContainerDefense
             while (!match.Finished && Time.realtimeSinceStartup < deadline)
             {
                 var home = match.Houses[0];
+                if (!home.IsBuilding && !match.Players[0].Eliminated) {
+                    if (home.Health < home.MaxHealth * .6f) session.Repair();
+                    for (int slot = 0; slot < 3; slot++) {
+                        if (home.Weapons[slot] == null) session.PlaceWeapon(slot,slot == 2 ? WeaponKind.Rocket : WeaponKind.Gatling);
+                        else if (home.BedLevel >= 2) session.UpgradeWeapon(slot);
+                    }
+                }
                 UpgradeKind choice = home.Health < home.MaxHealth * 0.65f ? UpgradeKind.Door :
-                    home.BedLevel < 2 ? UpgradeKind.Bed : home.WeaponLevel < 4 ? UpgradeKind.Weapon : UpgradeKind.Door;
+                    home.BedLevel < 2 ? UpgradeKind.Bed : UpgradeKind.Door;
                 if (!home.IsBuilding && match.UpgradeCost(0,choice) >= 0 && match.Players[0].Gold >= match.UpgradeCost(0,choice)) session.Buy(choice);
                 if (!combatCaptured && match.CombatSeconds > 10)
-                { ScreenCapture.CaptureScreenshot(Path.Combine(output,"03-combat.png")); combatCaptured = true; }
+                { session.Overview = true; matchHud.ShowBuildBoard(false); yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(Path.Combine(output,"03-combat.png")); combatCaptured = true; }
                 yield return null;
             }
             Time.timeScale = 1;

@@ -14,8 +14,8 @@ public static class CoreTests
     public static string Run()
     {
         passed = 0;
-        Check("Six houses and independent starting wallets", () => {
-            var m = New(); Equal(6, m.Houses.Count); Equal(6, m.Players.Count);
+        Check("Twelve houses and six independent starting wallets", () => {
+            var m = New(); Equal(12, m.Houses.Count); Equal(6, m.Players.Count);
             foreach (var h in m.Houses) Equal(-1, h.OwnerId);
             Equal(65, m.Players[0].Gold);
         });
@@ -23,7 +23,7 @@ public static class CoreTests
             var m = New(); var start = m.Players[0].Position;
             m.Move(0, 1, 1, Step); Near(5 * Step, start.Distance(m.Players[0].Position));
             for (int i = 0; i < 1000; i++) m.Move(0, 1, 1, Step);
-            Near(15, m.Players[0].Position.X); Near(2.6, m.Players[0].Position.Z);
+            True(Math.Abs(m.Players[0].Position.X) <= 18 && Math.Abs(m.Players[0].Position.Z) <= 18); True(m.Map.Walkable(m.Players[0].Position));
         });
         Check("Claim requires proximity and is first-wins", () => {
             var m = New(); False(m.TryClaim(0, 0)); Walk(m, 0, 0); Walk(m, 1, 0);
@@ -61,7 +61,7 @@ public static class CoreTests
         });
         Check("Maximum upgrade levels reject without charging", () => {
             var r = Rules(); r.StartingGold = 10000; var m = new MatchSimulation(r); Claim(m, 0, 0);
-            foreach (UpgradeKind kind in Enum.GetValues(typeof(UpgradeKind))) {
+            foreach (UpgradeKind kind in new[] { UpgradeKind.Bed, UpgradeKind.Door }) {
                 for (int i = 0; i < 4; i++) True(m.TryUpgrade(0, 0, kind));
                 double gold = m.Players[0].Gold; False(m.TryUpgrade(0, 0, kind));
                 Equal(gold, m.Players[0].Gold); Equal(-1, m.UpgradeCost(0, kind));
@@ -81,7 +81,7 @@ public static class CoreTests
             r.BossHealth = 100000; var m = new MatchSimulation(r); Claim(m, 0, 0); Claim(m, 1, 1);
             int hits = 0; m.Changed += e => { if (e.Kind == MatchEventKind.DoorHit) hits++; };
             m.Tick(Step); m.Tick(Step); m.Tick(Step); m.Tick(Step);
-            Equal(BossPhase.Travelling, m.Boss.Phase); Equal(0, hits);
+            Equal(BossPhase.Telegraphing, m.Boss.Phase); Equal(0, hits);
             for (int i = 0; i < 1800 && !m.Finished; i++) m.Tick(Step);
             Equal(2, hits); Equal(MatchPhase.Defeat, m.Phase);
             True(m.Players[0].Eliminated); True(m.Players[1].Eliminated);
@@ -98,7 +98,7 @@ public static class CoreTests
         });
         Check("Boss death ends combat; terminal simulation is frozen", () => {
             var r = Rules(); r.PreparationSeconds = 0.1f; r.BossHealth = 1;
-            var m = new MatchSimulation(r); Claim(m, 0, 0); m.TryToggleSleep(0); Advance(m, 2);
+            var m = new MatchSimulation(r); Claim(m, 0, 0); m.TryToggleSleep(0); True(m.TryPlaceWeapon(0,0,0,WeaponKind.Gatling)); Advance(m, 40);
             Equal(MatchPhase.Victory, m.Phase); Equal(BossPhase.Dead, m.Boss.Phase);
             Near(0, m.Boss.Health); Near(1, m.Players[0].DamageDealt); False(m.Players[0].Eliminated);
             double gold = m.Players[0].Gold; float elapsed = m.Elapsed;
@@ -106,9 +106,10 @@ public static class CoreTests
             False(m.TryUpgrade(0, 0, UpgradeKind.Bed));
         });
         Check("Weapon upgrades increase attributed damage", () => {
-            var r = Rules(); r.PreparationSeconds = 0.1f;
-            var m = new MatchSimulation(r); Claim(m, 0, 0); m.TryUpgrade(0, 0, UpgradeKind.Weapon);
-            Advance(m, 1.2f); Near(17, m.Players[0].DamageDealt); Near(6500 - 17, m.Boss.Health);
+            var r = Rules(); r.PreparationSeconds = 0.1f; r.StartingGold = 1000;
+            var m = new MatchSimulation(r); Claim(m, 0, 0); True(m.TryPlaceWeapon(0,0,0,WeaponKind.Gatling));
+            float before = m.Damage(0); True(m.TryUpgradeWeapon(0,0,0)); True(m.Damage(0) > before);
+            Advance(m,40); True(m.Players[0].DamageDealt > 0); Near(6500 - m.Players[0].DamageDealt,m.Boss.Health);
         });
         Check("Invalid inputs do not poison the simulation", () => {
             var m = New(); var p = m.Players[0].Position;
@@ -124,7 +125,7 @@ public static class CoreTests
             var m = New(); Claim(m, 0, 1); m.TryToggleSleep(0); var bots = new LocalBotController(m);
             for (int i = 0; i < 720; i++) { bots.Tick(Step); m.Tick(Step); }
             var owners = new HashSet<int>();
-            foreach (var h in m.Houses) { True(h.OwnerId >= 0); True(owners.Add(h.OwnerId)); }
+            foreach (var h in m.Houses) if (h.OwnerId >= 0) True(owners.Add(h.OwnerId)); Equal(6,owners.Count);
             Equal(0, m.Houses[1].OwnerId);
         });
         Check("Default six-player loop reaches a result across 30 seeds", () => {
@@ -148,7 +149,7 @@ public static class CoreTests
             Console.WriteLine("Default balance sample: " + wins + " boss defeats / " + losses + " full eliminations.");
             True(wins > 0);
         });
-        return passed + " core regression scenarios passed. " + MilestoneTwoTests.Run() + " " + CollectionTests.Run() + " " + SocialTests.Run() + " " + RankingTests.Run();
+        return passed + " core regression scenarios passed. " + MilestoneTwoTests.Run() + " " + CollectionTests.Run() + " " + SocialTests.Run() + " " + RankingTests.Run() + " " + NeighborhoodTests.Run();
     }
     private static MatchRules Rules() { return new MatchRules { UpgradeSeconds = 0 }; }
     private static MatchSimulation New() { return new MatchSimulation(Rules()); }
@@ -158,7 +159,7 @@ public static class CoreTests
         for (int i = 0; i < 600; i++) {
             var p = m.Players[player]; var target = m.Houses[house].Entry;
             if (p.Position.Distance(target) < 0.1f) return;
-            m.Move(player, target.X - p.Position.X, target.Z - p.Position.Z, Step);
+            m.Navigate(player,target,Step);
         }
         throw new Exception("Walk did not reach the house.");
     }
@@ -169,3 +170,4 @@ public static class CoreTests
     private static void Equal<T>(T expected, T actual) { if (!Equals(expected, actual)) throw new Exception("Expected " + expected + ", got " + actual); }
     private static void Near(double expected, double actual) { if (Math.Abs(expected - actual) > 0.02) throw new Exception("Expected ~" + expected + ", got " + actual); }
 }
+

@@ -1,0 +1,167 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bcf27532181a4f46a23f9a01631febd, type: 3}
+  m_Name: FixedMap
+  m_EditorClassIdentifier: ContainerDefense.Runtime::ContainerDefense.MapConfig
+  Definition:
+    MapId: container_neighborhood_v1
+    HouseSpawns:
+    - Id: 0
+      X: -11
+      Z: 12
+      ColorIndex: 0
+    - Id: 1
+      X: 0
+      Z: 12
+      ColorIndex: 1
+    - Id: 2
+      X: 11
+      Z: 12
+      ColorIndex: 2
+    - Id: 3
+      X: -11
+      Z: 4
+      ColorIndex: 3
+    - Id: 4
+      X: 0
+      Z: 4
+      ColorIndex: 4
+    - Id: 5
+      X: 11
+      Z: 4
+      ColorIndex: 5
+    - Id: 6
+      X: -11
+      Z: -4
+      ColorIndex: 2
+    - Id: 7
+      X: -1.5
+      Z: -4.5
+      ColorIndex: 0
+    - Id: 8
+      X: 11
+      Z: -4
+      ColorIndex: 1
+    - Id: 9
+      X: -11
+      Z: -12
+      ColorIndex: 3
+    - Id: 10
+      X: 0
+      Z: -12
+      ColorIndex: 4
+    - Id: 11
+      X: 11
+      Z: -12
+      ColorIndex: 2
+    Nodes:
+    - Id: 0
+      X: -16.5
+      Z: 16
+    - Id: 1
+      X: -5.5
+      Z: 16
+    - Id: 2
+      X: 5.5
+      Z: 16
+    - Id: 3
+      X: 16.5
+      Z: 16
+    - Id: 4
+      X: -16.5
+      Z: 8
+    - Id: 5
+      X: -5.5
+      Z: 8
+    - Id: 6
+      X: 5.5
+      Z: 8
+    - Id: 7
+      X: 16.5
+      Z: 8
+    - Id: 8
+      X: -16.5
+      Z: 0
+    - Id: 9
+      X: -5.5
+      Z: 0
+    - Id: 10
+      X: 5.5
+      Z: 0
+    - Id: 11
+      X: 16.5
+      Z: 0
+    - Id: 12
+      X: -16.5
+      Z: -8
+    - Id: 13
+      X: -5.5
+      Z: -8
+    - Id: 14
+      X: 5.5
+      Z: -8
+    - Id: 15
+      X: 16.5
+      Z: -8
+    - Id: 16
+      X: -16.5
+      Z: -16
+    - Id: 17
+      X: -5.5
+      Z: -16
+    - Id: 18
+      X: 5.5
+      Z: -16
+    - Id: 19
+      X: 16.5
+      Z: -16
+    EntryNodes: 00000000010000000200000003000000070000000b0000000f000000130000001200000011000000100000000c0000000800000004000000
+    Routes:
+    - RouteId: east_straight
+      Kind: 0
+      NodeSequence: 03000000070000000b0000000f00000013000000
+      TelegraphTime: 4
+      MinimumWave: 1
+      MaximumWave: 999
+      Weight: 1
+    - RouteId: west_sweep
+      Kind: 1
+      NodeSequence: 0000000004000000080000000c00000010000000110000001200000013000000
+      TelegraphTime: 4
+      MinimumWave: 1
+      MaximumWave: 999
+      Weight: 1
+    - RouteId: zig_zag
+      Kind: 2
+      NodeSequence: 000000000100000002000000030000000700000006000000050000000400000008000000090000000a0000000b0000000f0000000e0000000d0000000c000000
+      TelegraphTime: 4
+      MinimumWave: 1
+      MaximumWave: 999
+      Weight: 1
+    - RouteId: north_cluster
+      Kind: 3
+      NodeSequence: 0000000001000000020000000300000007000000060000000500000004000000
+      TelegraphTime: 4
+      MinimumWave: 1
+      MaximumWave: 999
+      Weight: 1
+    - RouteId: outer_loop
+      Kind: 4
+      NodeSequence: 00000000010000000200000003000000070000000b0000000f000000130000001200000011000000100000000c000000080000000400000000000000
+      TelegraphTime: 4
+      MinimumWave: 1
+      MaximumWave: 999
+      Weight: 1
+    MinX: -18
+    MaxX: 18
+    MinZ: -18
+    MaxZ: 18

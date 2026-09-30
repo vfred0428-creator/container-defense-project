@@ -31,10 +31,13 @@ public static class MilestoneTwoTests
             Advance(m,.3f); Near(402.5,m.Houses[0].MaxHealth); Near(402.5,m.Houses[0].Health); Near(200,m.Houses[1].Health);
         });
         Check("Kiko weapon bonus applies to actual shots and later tiers", () => {
-            var r = new MatchRules { PreparationSeconds = .1f, UpgradeSeconds = .3f };
+            var r = new MatchRules { PreparationSeconds = .1f, UpgradeSeconds = .3f, StartingGold = 1000 };
             var m = Match(CharacterId.Kiko,CharacterId.Milo,r); Claim(m,0,0); Claim(m,1,1);
-            Advance(m,1.2f); Near(9.9,m.Players[0].DamageDealt); Near(9,m.Players[1].DamageDealt);
-            True(m.TryUpgrade(0,0,UpgradeKind.Weapon)); Advance(m,.3f); Near(18.7,m.Damage(0)); Near(9,m.Damage(1));
+            True(m.TryPlaceWeapon(0,0,0,WeaponKind.Gatling)); True(m.TryPlaceWeapon(1,1,0,WeaponKind.Gatling));
+            Near(12.1,m.Damage(0)); Near(11,m.Damage(1));
+            for (int i = 0; i < 2000 && m.Players[0].DamageDealt == 0; i++) m.Tick(Step);
+            Near(12.1,m.Players[0].DamageDealt);
+            True(m.TryUpgradeWeapon(0,0,0)); Advance(m,.3f); Near(20.57,m.Damage(0)); Near(11,m.Damage(1));
         });
         Check("Pip moves 12 percent faster without changing another resident", () => {
             var m = Match(CharacterId.Pip,CharacterId.Milo);
@@ -74,7 +77,7 @@ public static class MilestoneTwoTests
         Check("Elimination cancels unfinished construction", () => {
             var r = new MatchRules { UpgradeSeconds = 100, PreparationSeconds = .1f, BossDamage = 1000, BossHealth = 100000 };
             var m = Match(CharacterId.Yume,CharacterId.Milo,r); Claim(m,0,0); m.TryUpgrade(0,0,UpgradeKind.Bed);
-            Advance(m,20); True(m.Players[0].Eliminated); False(m.Houses[0].IsBuilding); Equal(0,m.Houses[0].BedLevel);
+            Advance(m,60); True(m.Players[0].Eliminated); False(m.Houses[0].IsBuilding); Equal(0,m.Houses[0].BedLevel);
         });
         Check("Each unlock appears exactly at its XP level boundary", () => {
             var rules = new ProgressionRules(); var catalog = Catalog();
@@ -100,7 +103,7 @@ public static class MilestoneTwoTests
             var rules = new ProgressionRules();
             var a = new AccountProgression(new AccountData { TotalXp = rules.XpForLevel(3) - 1 },Catalog(),rules);
             var m = Match(CharacterId.Milo,CharacterId.Kiko,new MatchRules { PreparationSeconds = .1f, BossHealth = 1 }); long ticket = a.BeginMatch(m);
-            MatchReward receipt; False(a.TryAward(m,ticket,out receipt)); Claim(m,0,0); Advance(m,2);
+            MatchReward receipt; False(a.TryAward(m,ticket,out receipt)); Claim(m,0,0); True(m.TryPlaceWeapon(0,0,0,WeaponKind.Gatling)); Advance(m,40);
             True(a.TryAward(m,ticket,out receipt)); True(receipt.Xp > 0); Equal(3,a.Level); True(a.IsUnlocked(CharacterId.Lumi));
             Equal(CharacterId.Lumi,receipt.Unlocked[0]); long xp = a.TotalXp;
             False(a.TryAward(m,ticket,out receipt)); Equal(xp,a.TotalXp);
@@ -119,7 +122,7 @@ public static class MilestoneTwoTests
         });
         Check("An eliminated claimant gets participation XP without a victory bonus", () => {
             var m = Match(CharacterId.Milo,CharacterId.Kiko,new MatchRules { PreparationSeconds = .1f, BossDamage = 1000, BossHealth = 100000 });
-            Claim(m,0,0); Advance(m,20);
+            Claim(m,0,0); Advance(m,60);
             var rules = new ProgressionRules(); int xp = rules.Reward(m); True(xp >= rules.CompletionXp && xp < rules.CompletionXp + rules.VictoryXp);
         });
         Check("XP cap and maximum level are stable", () => {
@@ -151,7 +154,7 @@ public static class MilestoneTwoTests
         for (int i = 0; i < 600; i++) {
             var p = m.Players[player]; var target = m.Houses[house].Entry;
             if (p.Position.Distance(target) < .1f) break;
-            m.Move(player,target.X - p.Position.X,target.Z - p.Position.Z,Step);
+            m.Navigate(player,target,Step);
         }
         True(m.TryClaim(player,house));
     }
@@ -162,3 +165,4 @@ public static class MilestoneTwoTests
     private static void Equal<T>(T expected,T actual) { if (!Equals(expected,actual)) throw new Exception("Expected " + expected + ", got " + actual); }
     private static void Near(double expected,double actual) { if (Math.Abs(expected - actual) > .02) throw new Exception("Expected " + expected + ", got " + actual); }
 }
+

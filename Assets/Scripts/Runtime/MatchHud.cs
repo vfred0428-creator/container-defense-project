@@ -53,7 +53,7 @@ namespace ContainerDefense
             GUI.matrix = Matrix4x4.TRS(Vector3.zero,Quaternion.identity,Vector3.one * scale);
             session.Arena.DrawLabels();
             if (!session.Started) { if (rankedOpen) RankedScreen(); else if (socialOpen) SocialScreen(); else if (collectionOpen) CollectionScreen(); else TitleScreen(); return; }
-            HouseInterior(); TopBar(); BottomBar(); RoomButton();
+            MapControls(); TopBar(); HouseBoard(); MapOverviewButton();
             if (session.Paused) PauseScreen();
             else if (session.Match.Finished) Results();
         }
@@ -71,15 +71,17 @@ namespace ContainerDefense
                 float hp = resident.HouseId < 0 ? 1 : m.Houses[resident.HouseId].Health / m.Houses[resident.HouseId].MaxHealth;
                 Bar(new Rect(x + 5,88,55,6),resident.Eliminated ? 0 : hp,green);
                 Label(new Rect(x + 5,99,60,23),resident.Eliminated ? "OUT" : resident.Character.Id.ToString(),small,cream);
+                if (GUI.Button(new Rect(x,20,65,104),GUIContent.none,GUIStyle.none)) session.Scout(i);
             }
             float center = width / 2;
             Box(new Rect(center - 265,22,530,88),panel);
             bool prep = m.Phase == MatchPhase.Preparation;
-            string target = m.Boss.TargetHouseId >= 0 ? "  /  TARGET " + (m.Boss.TargetHouseId + 1).ToString("00") : "";
-            Label(new Rect(center - 245,34,490,26),prep ? (p.HouseId < 0 ? "CLAIM A HOME" : "PREPARE YOUR HOUSE") : (session.PracticeRanked ? "PRACTICE RANKED" : "WAVE 1") + target,heading,prep ? gold : Color.white);
+            string target = m.Boss.TargetHouseId >= 0 ? " / HOUSE " + (m.Boss.TargetHouseId + 1).ToString("00") : " / RECOVERY";
+            Label(new Rect(center - 245,34,490,26),prep ? (p.HouseId < 0 ? "CLAIM A HOUSE" : "PREPARE YOUR HOUSE") : "WAVE " + m.Boss.Wave + target,heading,prep ? gold : Color.white);
             Bar(new Rect(center - 245,73,490,13),m.Boss.Health / m.Boss.MaxHealth,red);
+            if (!prep) Label(new Rect(center - 245,88,490,22),m.Boss.Phase == BossPhase.Telegraphing ? "ROUTE " + string.Join(" > ",System.Array.ConvertAll(m.Boss.RouteHouses,id => (id + 1).ToString("00"))) + " / " + Mathf.CeilToInt(m.Boss.TelegraphRemaining) + "s" : m.Boss.Phase.ToString(),small,muted);
             Box(new Rect(width - 323,22,222,88),panel);
-            Label(new Rect(width - 305,32,185,32),((int)p.Gold).ToString("N0") + "  GOLD",heading,gold);
+            Label(new Rect(width - 305,32,185,32),((int)p.Gold).ToString("N0") + " YOUR GOLD",body,gold);
             Label(new Rect(width - 305,73,185,24),prep ? Mathf.CeilToInt(m.PreparationRemaining) + "s until storm" : Clock(m.CombatSeconds) + "  /  " + m.LivingHouses() + " alive",small,Color.white);
             if (Button(new Rect(width - 83,22,60,60),"II",new Color(0.65f,0.72f,0.85f))) session.TogglePause();
         }

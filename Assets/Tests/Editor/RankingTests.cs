@@ -54,8 +54,8 @@ public static class RankingTests
         Check("Actual surviving victory promotes once and persists profile wins",() => {
             var a = New(new AccountData { Rank = new RankData { Stars = 4 } });
             var m = new MatchSimulation(new MatchRules { PreparationSeconds = .1f,BossHealth = 1 }); long sequence = a.BeginMatch(m,true);
-            for (int i = 0; i < 400; i++) { var p = m.Players[0].Position; var target = m.Houses[0].Entry; m.Move(0,target.X - p.X,target.Z - p.Z,1f / 30); }
-            Assert(m.TryClaim(0,0)); for (int i = 0; i < 100 && !m.Finished; i++) m.Tick(.1f);
+            for (int i = 0; i < 600; i++) m.Navigate(0,m.Houses[0].Entry,1f / 30);
+            Assert(m.TryClaim(0,0)); Assert(m.TryPlaceWeapon(0,0,0,WeaponKind.Gatling)); for (int i = 0; i < 600 && !m.Finished; i++) m.Tick(.1f);
             MatchReward reward; Assert(m.Phase == MatchPhase.Victory && a.TryAward(m,sequence,out reward));
             Assert(a.Rank.CurrentRank == RankTier.Scout && a.Rank.Wins == 1 && a.Social.Profile.Wins == 1 && !a.TryAward(m,sequence,out reward));
             var restored = New(a.Snapshot()); Assert(restored.Rank.CurrentRank == RankTier.Scout && restored.Rank.Wins == 1 && restored.Social.Profile.Wins == 1);

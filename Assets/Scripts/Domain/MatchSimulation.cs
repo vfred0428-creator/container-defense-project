@@ -4,11 +4,16 @@ using System.Collections.Generic;
 namespace ContainerDefense.Domain
 {
     // Local authority. Future transports submit commands here, never mutate view objects.
-    public sealed class MatchSimulation
+    public sealed partial class MatchSimulation
     {
         private readonly MatchRules rules;
         private readonly PlayerState[] players = new PlayerState[6];
-        private readonly HouseState[] houses = new HouseState[6];
+        private readonly HouseState[] houses = new HouseState[12];
+        private readonly MapDefinition map;
+        public MapDefinition Map { get { return map.Snapshot(); } }
+        private readonly Point2[][] navigation = new Point2[6][];
+        private readonly int[] navigationIndex = new int[6];
+        private readonly Point2[] navigationGoal = new Point2[6];
         private readonly Random random;
         private readonly Random[] purchaseRandom = new Random[6];
         public IReadOnlyList<PlayerState> Players { get; private set; }
@@ -21,10 +26,11 @@ namespace ContainerDefense.Domain
         public bool Finished { get { return Phase == MatchPhase.Victory || Phase == MatchPhase.Defeat; } }
         public event Action<MatchEvent> Changed;
 
-        public MatchSimulation(MatchRules settings, int seed = 731, CharacterDefinition[] roster = null)
+        public MatchSimulation(MatchRules settings, int seed = 731, CharacterDefinition[] roster = null,MapDefinition layout = null)
         {
             if (settings == null) throw new ArgumentNullException("settings");
             rules = settings.Snapshot(); random = new Random(seed);
+            map = (layout ?? MapDefinition.Default()).Snapshot();
             if (roster != null && roster.Length != 6) throw new ArgumentException("A match requires six character selections.");
             var defaults = CharacterCatalog.Defaults();
             for (int i = 0; i < 6; i++)
@@ -34,11 +40,13 @@ namespace ContainerDefense.Domain
                     !MatchRules.Finite(definition.Bonus) || definition.Bonus < 0 || definition.Bonus > 1)
                     throw new ArgumentException("Invalid match character.");
                 players[i] = new PlayerState(i, i != 0, rules.StartingGold, definition);
-                houses[i] = new HouseState(i, rules.DoorHealth[0]);
+                players[i].Position = map.Spawn(i);
                 purchaseRandom[i] = new Random(unchecked(seed * 397 + i * 31 + 17));
             }
+            for (int i = 0; i < houses.Length; i++) houses[i] = new HouseState(map.HouseSpawns[i],rules.DoorHealth[0]);
             Players = Array.AsReadOnly(players); Houses = Array.AsReadOnly(houses);
             Boss = new BossState(rules.BossHealth); Phase = MatchPhase.Preparation;
+            Boss.EntryNode = map.EntryNodes[random.Next(map.EntryNodes.Length)]; Boss.Position = map.Nodes[Boss.EntryNode].Position;
         }
 
         public void Move(int playerId, float x, float z, float seconds)
@@ -49,8 +57,18 @@ namespace ContainerDefense.Domain
             float length = (float)Math.Sqrt(x * x + z * z);
             if (!MatchRules.Finite(length) || length < 0.001f) return;
             float scale = rules.MoveSpeed * p.Character.MoveMultiplier * seconds / Math.Max(1, length);
-            p.Position = new Point2(Clamp(p.Position.X + x * scale, -15, 15),
-                Clamp(p.Position.Z + z * scale, -8, 2.6f));
+            p.Position = map.ClampMove(p.Position,new Point2(p.Position.X + x * scale,p.Position.Z + z * scale));
+        }
+        public void Navigate(int playerId,Point2 goal,float dt)
+        {
+            PlayerState p; if (!ActivePlayer(playerId,out p) || p.Sleeping || !ValidStep(dt)) return;
+            if (navigation[playerId] == null || navigationGoal[playerId].Distance(goal) > .05f) {
+                navigation[playerId] = map.RoadPath(p.Position,goal); navigationIndex[playerId] = 0; navigationGoal[playerId] = goal;
+            }
+            var path = navigation[playerId]; int index = navigationIndex[playerId];
+            while (index < path.Length && p.Position.Distance(path[index]) < (index == path.Length - 1 ? .05f : .25f)) index++;
+            navigationIndex[playerId] = index; if (index >= path.Length) return;
+            Move(playerId,path[index].X - p.Position.X,path[index].Z - p.Position.Z,dt);
         }
 
         public bool TryClaim(int playerId, int houseId)
@@ -72,13 +90,15 @@ namespace ContainerDefense.Domain
             HouseState h = houses[p.HouseId];
             if (!p.Sleeping && p.Position.Distance(h.Entry) > rules.ClaimRadius) return false;
             p.Sleeping = !p.Sleeping;
-            p.Position = p.Sleeping ? new Point2(h.Entry.X - 0.85f, 5.1f) : h.Entry;
+            p.Position = p.Sleeping ? new Point2(h.Center.X - 2,h.Center.Z + .4f) : h.Entry;
+            navigation[playerId] = null;
             Emit(MatchEventKind.Sleeping, playerId, h.Id); return true;
         }
 
         public int UpgradeCost(int houseId, UpgradeKind kind)
         {
             if (!ValidHouse(houseId) || !ValidKind(kind)) return -1;
+            if (kind == UpgradeKind.Weapon) return WeaponUpgradeCost(houseId,0);
             HouseState h = houses[houseId];
             int level = Level(h, kind); int[] costs = Costs(kind);
             return level < costs.Length ? costs[level] : -1;
@@ -92,12 +112,14 @@ namespace ContainerDefense.Domain
         public float Damage(int houseId)
         {
             if (!ValidHouse(houseId)) return 0;
-            var h = houses[houseId];
-            return rules.WeaponDamage[h.WeaponLevel] * (h.OwnerId < 0 ? 1 : players[h.OwnerId].Character.DamageMultiplier);
+            var h = houses[houseId]; float result = 0;
+            foreach (var weapon in h.Weapons) if (weapon != null) result += WeaponCatalog.Get(weapon.Kind).Damage * (1 + (weapon.Level - 1) * .7f);
+            return result * (h.OwnerId < 0 ? 1 : players[h.OwnerId].Character.DamageMultiplier);
         }
 
         public bool TryUpgrade(int playerId, int houseId, UpgradeKind kind)
         {
+            if (kind == UpgradeKind.Weapon) return TryUpgradeWeapon(playerId,houseId,0);
             PlayerState p;
             if (!ActivePlayer(playerId, out p) || !ValidHouse(houseId) || !ValidKind(kind)) return false;
             HouseState h = houses[houseId]; int cost = UpgradeCost(houseId, kind);
@@ -157,51 +179,15 @@ namespace ContainerDefense.Domain
                     p.Gold += income; p.GoldEarned += income;
                 }
             }
+            TickWeapons(seconds);
+            if (Finished) return;
             if (Phase != MatchPhase.Combat) return;
-            foreach (HouseState h in houses)
-            {
-                if (h.OwnerId < 0 || h.Destroyed) continue;
-                h.ShotTimer += seconds;
-                if (h.ShotTimer < rules.WeaponInterval) continue;
-                h.ShotTimer -= rules.WeaponInterval;
-                float damage = Math.Min(Boss.Health, Damage(h.Id));
-                Boss.Health -= damage; players[h.OwnerId].DamageDealt += damage;
-                Emit(MatchEventKind.Shot, h.OwnerId, h.Id, damage);
-                if (Boss.Health <= 0) { Boss.Phase = BossPhase.Dead; Finish(true); return; }
-            }
             TickBoss(seconds);
         }
 
         private void TickBoss(float seconds)
         {
-            if (Boss.Phase == BossPhase.Selecting)
-            {
-                int pick = random.Next(LivingHouses());
-                foreach (HouseState h in houses)
-                {
-                    if (h.OwnerId < 0 || h.Destroyed) continue;
-                    if (pick-- == 0) { Boss.TargetHouseId = h.Id; break; }
-                }
-                Boss.Phase = BossPhase.Travelling;
-            }
-            HouseState target = houses[Boss.TargetHouseId];
-            Point2 attackPoint = new Point2(target.Entry.X, target.Entry.Z - 1.5f);
-            if (Boss.Phase == BossPhase.Travelling)
-            {
-                Boss.Position = Boss.Position.Towards(attackPoint, rules.BossMoveSpeed * seconds);
-                if (Boss.Position.Distance(attackPoint) < 0.05f)
-                { Boss.Phase = BossPhase.Attacking; Boss.AttackTimer = rules.BossAttackInterval; }
-                return;
-            }
-            Boss.AttackTimer -= seconds;
-            if (Boss.AttackTimer > 0) return;
-            Boss.AttackTimer += rules.BossAttackInterval;
-            float damage = rules.BossDamage * (1 + CombatSeconds * rules.BossEnragePerSecond);
-            target.Health = Math.Max(0, target.Health - damage);
-            Emit(MatchEventKind.DoorHit, target.OwnerId, target.Id, damage);
-            if (!target.Destroyed) return;
-            Eliminate(players[target.OwnerId]); Boss.TargetHouseId = -1; Boss.Phase = BossPhase.Selecting;
-            if (LivingHouses() == 0) Finish(false);
+            TickBossRoute(seconds);
         }
 
         public int LivingHouses()
@@ -213,7 +199,10 @@ namespace ContainerDefense.Domain
         private void Eliminate(PlayerState p)
         {
             p.Eliminated = true; p.Sleeping = false; p.SurvivalSeconds = Elapsed;
-            if (p.HouseId >= 0) { houses[p.HouseId].IsBuilding = false; houses[p.HouseId].BuildRemaining = 0; }
+            if (p.HouseId >= 0) {
+                var h = houses[p.HouseId]; h.IsBuilding = false; h.BuildRemaining = 0;
+                foreach (var w in h.Weapons) if (w != null) w.BuildRemaining = 0;
+            }
             Emit(MatchEventKind.Eliminated, p.Id, p.HouseId);
         }
         private void Finish(bool victory)

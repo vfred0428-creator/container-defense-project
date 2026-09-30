@@ -22,6 +22,8 @@ namespace ContainerDefense.Editor
         public static void Prepare()
         {
             Directory.CreateDirectory("Assets/Scenes"); Directory.CreateDirectory("Assets/Resources");
+            if (AssetDatabase.LoadAssetAtPath<MapConfig>("Assets/Resources/FixedMap.asset") == null)
+                AssetDatabase.CreateAsset(ScriptableObject.CreateInstance<MapConfig>(),"Assets/Resources/FixedMap.asset");
             if (AssetDatabase.LoadAssetAtPath<MatchConfig>("Assets/Resources/DefaultMatch.asset") == null)
             {
                 var config = ScriptableObject.CreateInstance<MatchConfig>();
@@ -62,6 +64,7 @@ namespace ContainerDefense.Editor
             config.Rules.Validate();
             AssetDatabase.LoadAssetAtPath<CharacterConfig>("Assets/Resources/Characters.asset").Validate();
             AssetDatabase.LoadAssetAtPath<CollectionConfig>("Assets/Resources/Collections.asset").Catalog();
+            AssetDatabase.LoadAssetAtPath<MapConfig>("Assets/Resources/FixedMap.asset").Definition.Validate();
 
             foreach (var skin in AssetDatabase.LoadAssetAtPath<CollectionConfig>("Assets/Resources/Collections.asset").Skins)
                 if (Resources.Load<Texture2D>("Art2D/" + skin.SkinId) == null) throw new System.Exception("Missing portrait: " + skin.SkinId);

@@ -3,9 +3,9 @@ using System;
 namespace ContainerDefense.Domain
 {
     public enum MatchPhase { Preparation, Combat, Victory, Defeat }
-    public enum BossPhase { Waiting, Selecting, Travelling, Attacking, Dead }
+    public enum BossPhase { Waiting, Selecting, Telegraphing, Travelling, Attacking, Recovery, Dead }
     public enum UpgradeKind { Bed, Door, Weapon }
-    public enum MatchEventKind { Claimed, Sleeping, Upgraded, Shot, DoorHit, Eliminated, CombatStarted, Finished, UpgradeStarted }
+    public enum MatchEventKind { Claimed, Sleeping, Upgraded, Shot, DoorHit, Eliminated, CombatStarted, Finished, UpgradeStarted, Placed, Moved, Sold, Repaired, RoutePlanned }
 
     public struct Point2
     {
@@ -66,11 +66,14 @@ namespace ContainerDefense.Domain
         public double LastUpgradePaid { get; internal set; }
         public bool LastUpgradeDiscounted { get; internal set; }
         public bool Destroyed { get { return OwnerId >= 0 && Health <= 0; } }
-        internal float ShotTimer;
-        internal HouseState(int id, float health)
+        public WeaponPlacement[] Weapons { get; private set; }
+        public Point2 Center { get; private set; }
+        public float ProtectedUntil { get; internal set; }
+        public int AttacksReceived { get; internal set; }
+        internal HouseState(HouseSpawnPoint spawn, float health)
         {
-            Id = id; OwnerId = -1; Health = MaxHealth = health;
-            Entry = new Point2((id - 2.5f) * 4.8f, 2.1f);
+            Id = spawn.Id; OwnerId = -1; Health = MaxHealth = health;
+            Entry = spawn.Entry; Center = spawn.Center; Weapons = new WeaponPlacement[3];
         }
     }
 
@@ -81,11 +84,19 @@ namespace ContainerDefense.Domain
         public float Health { get; internal set; }
         public float MaxHealth { get; private set; }
         public int TargetHouseId { get; internal set; }
+        public int EntryNode { get; internal set; }
+        public string RouteId { get; internal set; }
+        public int[] RouteHouses { get; internal set; }
+        public Point2[] RoutePath { get; internal set; }
+        public float TelegraphRemaining { get; internal set; }
+        public float RecoveryRemaining { get; internal set; }
+        public float SlowRemaining { get; internal set; }
+        public int Wave { get; internal set; }
         internal float AttackTimer;
         internal BossState(float health)
         {
             Health = MaxHealth = health; Position = new Point2(0, -4);
-            TargetHouseId = -1; Phase = BossPhase.Waiting;
+            TargetHouseId = -1; Phase = BossPhase.Waiting; RouteHouses = new int[0]; RoutePath = new Point2[0]; Wave = 1;
         }
     }
 
