@@ -50,6 +50,7 @@ namespace ContainerDefense
             float s = Mathf.Max(width / roomArt.width,height / roomArt.height), w = roomArt.width * s, hh = roomArt.height * s;
             room = new Rect((width - w) / 2,Mathf.Clamp(l.Board.y - .77f * hh,height - hh,0),w,hh);
             GUI.DrawTexture(room,roomArt,ScaleMode.StretchToFill);
+            RoomDecor(p);
             WindowBoss();
             WeaponRack(h);
             DoorOverlay(h);
@@ -79,6 +80,99 @@ namespace ContainerDefense
         private void StartErrand(Station s) { errand = (int)s; errandUntil = Time.unscaledTime + ErrandSeconds; }
         private void Puff(Station s) { puffs.Add(new RoomPuff { At = StationMark[(int)s],Start = Time.unscaledTime }); GameAudio.Play("build"); }
 
+        // The resident's own touches, hung over the three painted bunny posters: a framed poster of themselves with
+        // their name, a keepsake for their passive, and a pennant with their initial. Colours come from RoomTheme.
+        private void RoomDecor(PlayerState p)
+        {
+            var def = session.Characters.Get(p.Character.Id); var theme = RoomTheme.For(def.Id);
+            Color accent = HudTheme.Hex(theme.Accent), paper = HudTheme.Hex(theme.Paper), ink = HudTheme.Hex(theme.Ink);
+            // Poster: wooden frame, paper, portrait, name strip.
+            var poster = RR(.087f,.183f,.159f,.357f);
+            var inner = Framed(poster,paper);
+            var strip = Cut.Bottom(ref inner,inner.height * .24f);
+            HudTheme.Fill(strip,accent);
+            HudTheme.OutlinedText(strip,def.Name.ToUpperInvariant(),Mathf.RoundToInt(Mathf.Clamp(strip.height * .62f,12,40)),ink,TextAnchor.MiddleCenter);
+            Portrait(Cut.Inset(inner,inner.width * .04f),session.Inventory.Equipped(p.Character.Id),true);
+            // Keepsake card.
+            var card = Framed(RR(.185f,.243f,.231f,.352f),paper);
+            DrawKeepsake(Cut.Center(card,card.width * .9f,card.width * .9f),RoomTheme.KeepsakeFor(def.Passive),accent,paper);
+            // Pennant on a rod, with a little sway.
+            var flag = RR(.648f,.258f,.684f,.36f);
+            HudTheme.Fill(new Rect(flag.x - 4,flag.y - 4,flag.width + 8,5),HudTheme.Hex(0x5A3A1E),2.5f);
+            var matrix = GUI.matrix; var pivot = new Vector3(flag.center.x,flag.y,0);
+            GUI.matrix = matrix * Matrix4x4.Translate(pivot) * Matrix4x4.Rotate(Quaternion.Euler(0,0,Mathf.Sin(Time.unscaledTime * 1.3f) * 2.5f)) * Matrix4x4.Translate(-pivot);
+            // Square body with a pointed tip: a diamond rotated about the bottom edge's centre.
+            flag.yMax -= flag.width / 2; float side = flag.width / 1.4142f; var tipPivot = new Vector3(flag.center.x,flag.yMax,0);
+            HudTheme.Fill(new Rect(flag.x + 3,flag.y + 3,flag.width,flag.height),HudTheme.Hex(0x000000,.25f),3);
+            HudTheme.Fill(flag,accent,3);
+            var swayed = GUI.matrix;
+            GUI.matrix = swayed * Matrix4x4.Translate(tipPivot) * Matrix4x4.Rotate(Quaternion.Euler(0,0,45)) * Matrix4x4.Translate(-tipPivot);
+            HudTheme.Fill(new Rect(tipPivot.x - side / 2,tipPivot.y - side / 2,side,side),accent);
+            GUI.matrix = swayed;
+            HudTheme.Fill(new Rect(flag.x,flag.yMax - flag.height * .14f,flag.width,flag.height * .07f),paper);
+            HudTheme.OutlinedText(Cut.Inset(flag,2),def.Name.Substring(0,1),Mathf.RoundToInt(Mathf.Clamp(flag.width * .7f,14,48)),ink,TextAnchor.MiddleCenter);
+            GUI.matrix = matrix;
+        }
+        // A wooden frame with a soft shadow; returns the paper area inside it.
+        private Rect Framed(Rect r,Color paper)
+        {
+            float edge = Mathf.Max(3,r.width * .07f);
+            HudTheme.Fill(new Rect(r.x + 4,r.y + 5,r.width,r.height),HudTheme.Hex(0x2A1408,.35f),3);
+            HudTheme.Fill(r,HudTheme.Hex(0x6B4524),3); HudTheme.Fill(Cut.Inset(r,edge * .45f),HudTheme.Hex(0x8C5E33),2);
+            var inner = Cut.Inset(r,edge); HudTheme.Fill(inner,paper); return inner;
+        }
+        // Hand-drawn keepsakes, one per passive.
+        private void DrawKeepsake(Rect r,Keepsake k,Color accent,Color paper)
+        {
+            var c = r.center; float u = r.width;
+            switch (k) {
+                case Keepsake.CoinJar: {
+                    var jar = new Rect(c.x - u * .3f,c.y - u * .25f,u * .6f,u * .62f);
+                    HudTheme.Fill(jar,HudTheme.Hex(0xBFE3F2,.75f),u * .12f);
+                    for (int i = 0; i < 3; i++) HudIcons.Draw(new Rect(c.x - u * .17f + (i % 2) * u * .06f,jar.yMax - u * .3f - i * u * .14f,u * .3f,u * .3f),"icon_coin");
+                    HudTheme.Fill(new Rect(jar.x + u * .1f,jar.y + u * .06f,u * .06f,jar.height * .55f),HudTheme.Hex(0xFFFFFF,.55f),u * .03f);
+                    HudTheme.Fill(new Rect(c.x - u * .25f,jar.y - u * .1f,u * .5f,u * .12f),accent,u * .04f);
+                    break;
+                }
+                case Keepsake.Shield: {
+                    var top = new Rect(c.x - u * .3f,c.y - u * .36f,u * .6f,u * .42f);
+                    HudTheme.Fill(top,accent,u * .06f);
+                    var matrix = GUI.matrix; var pivot = new Vector3(c.x,c.y + u * .06f,0); float d = u * .42f;
+                    GUI.matrix = matrix * Matrix4x4.Translate(pivot) * Matrix4x4.Rotate(Quaternion.Euler(0,0,45)) * Matrix4x4.Translate(-pivot);
+                    HudTheme.Fill(new Rect(pivot.x - d / 2,pivot.y - d / 2,d,d),accent,u * .04f);
+                    GUI.matrix = matrix;
+                    HudTheme.Fill(new Rect(c.x - u * .05f,c.y - u * .28f,u * .1f,u * .52f),paper,u * .03f);
+                    HudTheme.Fill(new Rect(c.x - u * .22f,c.y - u * .08f,u * .44f,u * .1f),paper,u * .03f);
+                    break;
+                }
+                case Keepsake.Target:
+                    for (int i = 0; i < 4; i++) { float s = u * (.8f - i * .19f); HudTheme.Fill(new Rect(c.x - s / 2,c.y - s / 2,s,s),i % 2 == 0 ? HudTheme.Hex(0xE5484D) : HudTheme.Hex(0xFFF6E8),s / 2); }
+                    HudTheme.Fill(new Rect(c.x - u * .04f,c.y - u * .04f,u * .08f,u * .08f),accent,u * .04f);
+                    break;
+                case Keepsake.Pillow:
+                    Cushion(Cut.Center(r,u * .82f,u * .55f),accent,paper);
+                    break;
+                case Keepsake.Sneaker: {
+                    var sole = new Rect(c.x - u * .38f,c.y + u * .14f,u * .76f,u * .1f);
+                    HudTheme.Fill(new Rect(c.x - u * .3f,c.y - u * .2f,u * .34f,u * .4f),accent,u * .1f);
+                    HudTheme.Fill(new Rect(c.x - u * .3f,c.y - u * .02f,u * .66f,u * .22f),accent,u * .1f);
+                    HudTheme.Fill(sole,HudTheme.Hex(0xFFFFFF),u * .05f);
+                    for (int i = 0; i < 3; i++) HudTheme.Fill(new Rect(c.x - u * .16f + i * u * .1f,c.y - u * .1f + i * u * .04f,u * .05f,u * .12f),paper,u * .02f);
+                    break;
+                }
+                case Keepsake.PriceTag: {
+                    var tag = new Rect(c.x - u * .34f,c.y - u * .22f,u * .68f,u * .44f);
+                    HudTheme.Fill(tag,accent,u * .08f);
+                    HudTheme.Fill(new Rect(tag.x + u * .06f,c.y - u * .05f,u * .1f,u * .1f),paper,u * .05f);
+                    HudTheme.OutlinedText(new Rect(tag.x + u * .16f,tag.y,tag.width - u * .16f,tag.height),"50%",Mathf.RoundToInt(Mathf.Clamp(u * .36f,12,48)),HudTheme.Ink,TextAnchor.MiddleCenter);
+                    break;
+                }
+                default:
+                    HudTheme.Fill(Cut.Center(r,u * .8f,u * .8f),accent,u * .4f);
+                    HudIcons.Draw(Cut.Center(r,u * .62f,u * .62f),"icon_repair");
+                    break;
+            }
+        }
         // The boss grows in the window as it gets closer, with a red glow on the glass.
         private void WindowBoss()
         {

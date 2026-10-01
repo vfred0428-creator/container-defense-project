@@ -47,3 +47,4 @@ Updated 2026-10-01. Branch: claude/continue-astra (local only).
 - **GitHub:** private repo https://github.com/vfred0428-creator/container-defense-project. master and claude/continue-astra are pushed.
   - `main` (GitHub's initial README merged, ours kept) still needs a push from a terminal on the PC, because the session's auto-mode check blocks my pushes. Then set main as the default branch.
 - **Checks:** 159 domain + 17 persistence. HUD audit 0 at every captured size (TestResults/Interior/final).
+- **Per-character rooms (first pass, cloud session, branch claude/amazing-cori-vg3ybx):** each resident hangs their own framed poster, a keepsake for their passive and a pennant in their colours over the painted bunny posters (RoomTheme + HouseInteriorHud.RoomDecor). 160 domain checks pass under Mono; runtime type-checks against Unity reference assemblies. Not yet viewed in Unity.

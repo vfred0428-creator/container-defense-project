@@ -27,3 +27,10 @@ After Claude usage stopped, Codex resumed the unfinished room runtime edits foll
 
 ## Claude — 2026-10-01 afternoon
 Continued on Astra's b8cb807. Done: room card polish (c31f928), launch screen with real loading/error/retry (d9b8694, 3a66029), smoother character selection (52e5c76). GitHub remote: origin = vfred0428-creator/container-defense-project (private). Pushes from this session are blocked by the auto-mode check; push `main` and `claude/continue-astra` from a terminal. Open: real phone QA, per-character rooms.
+
+## Claude — 2026-10-02 (cloud session)
+Per-character rooms, first pass (the open item above), on branch claude/amazing-cori-vg3ybx:
+- Domain/RoomTheme.cs: each resident's room colours (accent, paper, ink) and Keepsake, which follows the passive (coin jar, shield, target, pillow, sneaker, price tag, wrench). Visual only. 1 new interior test, so 160 domain checks.
+- HouseInteriorHud.RoomDecor covers the three painted bunny posters: a framed poster of the resident with their name, a keepsake card, and a swaying pennant with their initial. Same shared room.png; no new art.
+- Checked here without Unity: domain + tests compile as C# 5 (like Test-Core.ps1's csc) under Mono and all 160 pass; Domain + Runtime compile with Roslyn against Unity 2021.3 reference assemblies. Placement was mocked on room.png.
+- Not yet seen in Unity: please run Tools/Test-Core.ps1, Run Core Checks, Capture-UiShots and look at the room with a few characters before calling it done.
