@@ -48,3 +48,30 @@ Updated 2026-09-30 (America/New_York). Continue this project; do not restart it.
 - Ownership while collaborating: Claude — runtime camera/HUD/art and associated tests; Astra — README, PROJECT_STATUS and Tools/Verify-Player.ps1. Do not stage or revert another agent's uncommitted files.
 - Scene: Assets/Scenes/ContainerYard.unity. Map: Assets/Resources/FixedMap.asset. Save filename: account-v1.json, payload version 4; preserve unknown ownership and real profiles.
 - Build command: Tools/Build-Windows.ps1 [-MilestonePreview]. Run only one Unity editor/build against this checkout. Never run multiple real-profile players concurrently.
+
+## CLAUDE, WHILE ASTRA WAS OUT (2026-10-01)
+Branch claude/continue-astra, local only. Astra left nothing uncommitted after 9709660; the buttons, mechanics and background-art rework was planned but had no code yet.
+- **f2455fd TFT camera.**
+  - Domain/MatchView: the whole neighbourhood while claiming, then your own base.
+  - Read-only scouting of living players.
+  - Full map from the minimap.
+  - A red edge and GO HOME button when the boss lines up your house.
+  - 9 MatchViewTests.
+- **fa812a0 / db40987 / 4b67a36 HUD polish:** round portraits, house panel thumbnail, round minimap, icons.
+- **3422133 Hand-built UI:**
+  - opaque framed cards and one button system with pressed and disabled states
+  - Lilita One headings (OFL, see Assets/Fonts/LICENSE.txt) and a live-text logo
+  - padlock locked state
+  - blurred menu background
+- **3ecad5b Characters match the room art everywhere.**
+  - vhi rejected the generated characters. The menu, portraits, collection, HUD and in-world characters now all use the nine-pose room atlases.
+  - The atlases were de-fringed; originals are in Art/Source/Atlas-Originals.
+  - The locked flat world clashed with the room characters, so the current world art stays and only the locked icons are wired in.
+  - Details: Art/Source/Generated/v4-locked/VETTING.md.
+- **45de420 Hand-made combat feedback, visual only:** per-weapon projectiles, impact stars, damage numbers, boss target ring, house pop, coins flying to the gold counter.
+- **Checks:** 133 domain + 17 Unity persistence = 150 pass. The HUD audit is clean at 1920x1080, 1280x720 and 1920x886 with a simulated notch.
+- **Builds:** the preview build is TestResults/UI-Pass/preview-build/ContainerDefense.exe. Builds/Windows has not been rebuilt.
+- **Open:**
+  - A north-edge dressing strip and any remaining world art in the room style.
+  - No audio exists, so there are no button sounds.
+  - Real touch-device QA.
