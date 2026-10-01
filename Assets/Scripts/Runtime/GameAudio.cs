@@ -12,7 +12,10 @@ namespace ContainerDefense
         private readonly Dictionary<string,AudioClip> clips = new Dictionary<string,AudioClip>();
         private readonly Dictionary<string,float> lastPlayed = new Dictionary<string,float>();
         private AudioSource[] voices;
-        private AudioSource jingle;
+        private AudioSource jingle, music;
+        // Background loop ("Cozy Puzzle Stage Select", CC0): quiet under the Music slider, ducked for warnings and jingles.
+        private const float MusicGain = .4f, DuckGain = .55f, DuckSeconds = 3.5f;
+        private float duckUntil;
         private int nextVoice;
         private AudioPrefs prefs = new AudioPrefs();
         private static readonly Dictionary<string,float> Cooldown = new Dictionary<string,float> {
@@ -34,8 +37,17 @@ namespace ContainerDefense
             voices = new AudioSource[10];
             for (int i = 0; i < voices.Length; i++) { voices[i] = gameObject.AddComponent<AudioSource>(); voices[i].playOnAwake = false; voices[i].spatialBlend = 0; }
             jingle = gameObject.AddComponent<AudioSource>(); jingle.playOnAwake = false;
+            music = gameObject.AddComponent<AudioSource>(); music.playOnAwake = false; music.loop = true; music.volume = 0;
+            music.clip = Resources.Load<AudioClip>("Music/cozy_puzzle_stage_select_bpm100"); if (music.clip != null) music.Play();
             foreach (var c in Resources.LoadAll<AudioClip>("Sfx")) clips[c.name] = c;
         }
+        private void Update()
+        {
+            if (music == null || music.clip == null) return;
+            float target = MusicLevel * MusicGain * (Time.unscaledTime < duckUntil ? DuckGain : 1) * (jingle.isPlaying ? .5f : 1);
+            music.volume = Mathf.MoveTowards(music.volume,target,Time.unscaledDeltaTime * .6f);
+        }
+        public static void Duck() { if (instance != null) instance.duckUntil = Time.unscaledTime + DuckSeconds; }
         // Plays a one-shot unless it played too recently; volume is scaled per sound and by the SFX setting.
         public static void Play(string id,float volume = 1)
         {
@@ -65,7 +77,7 @@ namespace ContainerDefense
                     Play("hit",near * .8f); break;
                 case MatchEventKind.DoorHit: Play("house_hit",e.PlayerId == 0 ? 1 : .5f); break;
                 case MatchEventKind.Eliminated: if (e.HouseId >= 0 && m.Phase == MatchPhase.Combat) Play("house_destroyed",e.PlayerId == 0 ? 1 : .6f); break;
-                case MatchEventKind.RoutePlanned: if (e.PlayerId == 0) Play("warning"); break;
+                case MatchEventKind.RoutePlanned: if (e.PlayerId == 0) { Play("warning"); Duck(); } break;
                 case MatchEventKind.Claimed: if (e.PlayerId == 0) Play("claim"); break;
                 case MatchEventKind.Placed: case MatchEventKind.UpgradeStarted: if (e.PlayerId == 0) Play("build"); break;
                 case MatchEventKind.Repaired: if (e.PlayerId == 0) Play("repair"); break;

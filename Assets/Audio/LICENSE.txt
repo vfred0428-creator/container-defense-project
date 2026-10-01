@@ -27,3 +27,9 @@ Files in Resources/Sfx are copied unchanged from those packs and renamed by use:
 - warning.ogg
 
 No looping music track: none of these packs contains a loop.
+
+Music
+- "Cozy Puzzle Stage Select" by MintoDog
+  https://opengameart.org/content/cozy-puzzle-stage-select
+  License: CC0 (the only licence listed on the page, checked 2026-10-01)
+  File: Resources/Music/cozy_puzzle_stage_select_bpm100.ogg (cozy_puzzle_stage_select_bpm100_0.ogg, unchanged)
