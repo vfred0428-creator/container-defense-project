@@ -56,7 +56,7 @@ namespace ContainerDefense
             HouseUpgrade(buttons[1],live,UpgradeKind.Bed,"BED");
             HouseUpgrade(buttons[2],live,UpgradeKind.Door,"DOOR");
             bool canRepair = live.Health < live.MaxHealth && !live.IsBuilding && m.Players[0].Gold >= MatchSimulation.RepairCost;
-            if (HudTheme.Button(buttons[3],"FIX\n" + MatchSimulation.RepairCost,ButtonKind.Primary,canRepair) && !session.Repair()) session.Notify("Repair needs 40 gold and a damaged door.");
+            if (HudTheme.Button(buttons[3],MatchSimulation.RepairCost.ToString(),ButtonKind.Primary,"icon_repair",canRepair) && !session.Repair()) session.Notify("Repair needs 40 gold and a damaged door.");
         }
         private void HouseUpgrade(Rect r,HouseState house,UpgradeKind kind,string name)
         {
@@ -67,7 +67,8 @@ namespace ContainerDefense
                 return;
             }
             bool allowed = cost >= 0 && !house.IsBuilding && session.Match.Players[0].Gold >= cost;
-            if (HudTheme.Button(r,cost < 0 ? name + "\nMAX" : name + "\n" + HudTheme.Number(cost),ButtonKind.Primary,allowed)) session.Buy(kind);
+            // Icon-led house buttons: the icon says what it is, the label says the price.
+            if (HudTheme.Button(r,cost < 0 ? "MAX" : HudTheme.Number(cost),ButtonKind.Primary,kind == UpgradeKind.Bed ? "icon_bed" : "icon_door",allowed)) session.Buy(kind);
         }
         private void Sockets(Rect area,HouseScout h,bool own)
         {

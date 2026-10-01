@@ -5,22 +5,23 @@ namespace ContainerDefense
 {
     public enum ButtonKind { Primary, Play, Secondary, Danger }
 
-    // One visual language for every screen: 1920x1080 reference, navy panels, bevelled buttons,
-    // Nunito at fixed sizes, a single gold selection ring. Textures are generated once.
+    // One hand-built visual language for every screen: 1920x1080 reference, opaque framed cards with an inner bevel,
+    // one button system (pressed and disabled states, optional icon), Lilita One for headings and labels,
+    // Nunito for body text, a single gold selection ring. Everything is drawn in code; textures are generated once.
     public static class HudTheme
     {
         public const float ReferenceWidth = 1920, ReferenceHeight = 1080;
-        public const int Title = 56, CardTitle = 36, Body = 28, Label = 22;
+        public const int Title = 48, CardTitle = 32, Body = 24, Label = 20;
         public const float Touch = 96, Gap = 16, Margin = 24, Radius = 20;
-        public static readonly Color PanelFill = Hex(0x1B2238,.9f), PanelBorder = Hex(0x3A4670), CardFill = Hex(0x242C47,.95f);
+        public static readonly Color PanelFill = Hex(0x1A2036), PanelBorder = Hex(0x7A88BC), PanelBevel = Hex(0x111627), CardFill = Hex(0x252D49), CardBorder = Hex(0x55628F);
         public static readonly Color Ink = Color.white, Muted = Hex(0xAEB8D6), Gold = Hex(0xFFD04A), Good = Hex(0x39C46A), Bad = Hex(0xFF5A64), Info = Hex(0x6FA8FF);
-        public static readonly Color PrimaryFill = Hex(0x39C46A), PlayFill = Hex(0xFFA928), SecondaryFill = Hex(0x4B5784), DangerFill = Hex(0xE0535F), DisabledFill = Hex(0x2E3550), DisabledText = Hex(0x7D87A8);
+        public static readonly Color PrimaryFill = Hex(0x3BB86A), PlayFill = Hex(0xF59E1B), SecondaryFill = Hex(0x46538A), DangerFill = Hex(0xD9434F), DisabledFill = Hex(0x343A52), DisabledText = Hex(0x8990A8);
         public static readonly Color Outline = Hex(0x0B1020,.9f), BarBack = Hex(0x0E1322,.95f);
 
-        private static Texture2D panel, card, shadow, button, ring, pill;
-        private static GUIStyle panelStyle, cardStyle, shadowStyle, buttonStyle, ringStyle, pillStyle;
+        private static Texture2D panel, card, shadow, button, pressedButton, ring, pill;
+        private static GUIStyle panelStyle, cardStyle, shadowStyle, buttonStyle, pressedStyle, ringStyle, pillStyle;
         private static readonly Dictionary<long,GUIStyle> textStyles = new Dictionary<long,GUIStyle>();
-        private static Font regular, bold;
+        private static Font regular, bold, display;
 
         public static Color Hex(int rgb,float alpha = 1) { return new Color((rgb >> 16 & 255) / 255f,(rgb >> 8 & 255) / 255f,(rgb & 255) / 255f,alpha); }
 
@@ -30,11 +31,11 @@ namespace ContainerDefense
         private static void Ensure()
         {
             if (panel != null) return;
-            regular = Resources.Load<Font>("Fonts/Nunito"); bold = Resources.Load<Font>("Fonts/NunitoBold") ?? regular;
-            panel = Rounded(96,20,PanelFill,PanelBorder,2,false); card = Rounded(96,16,CardFill,PanelBorder,2,false);
-            shadow = Shadow(96,28); button = Rounded(96,18,Color.white,Color.clear,0,true); ring = Rounded(96,22,Color.clear,Gold,4,false);
-            pill = Rounded(96,32,PanelFill,PanelBorder,2,false);
-            panelStyle = Nine(panel,24); cardStyle = Nine(card,20); shadowStyle = Nine(shadow,34); buttonStyle = Nine(button,22); ringStyle = Nine(ring,26); pillStyle = Nine(pill,34);
+            regular = Resources.Load<Font>("Fonts/Nunito"); bold = Resources.Load<Font>("Fonts/NunitoBold") ?? regular; display = Resources.Load<Font>("Fonts/LilitaOne") ?? bold;
+            panel = Framed(96,18,PanelFill,PanelBorder,PanelBevel); card = Framed(96,14,CardFill,CardBorder,PanelBevel);
+            shadow = Shadow(96,28); button = Face(96,16,false); pressedButton = Face(96,16,true); ring = Rounded(96,22,Color.clear,Gold,4,false);
+            pill = Framed(96,32,PanelFill,PanelBorder,PanelBevel);
+            panelStyle = Nine(panel,24); cardStyle = Nine(card,20); shadowStyle = Nine(shadow,34); buttonStyle = Nine(button,22); pressedStyle = Nine(pressedButton,22); ringStyle = Nine(ring,26); pillStyle = Nine(pill,34);
         }
         private static GUIStyle Nine(Texture2D texture,int border) { var s = new GUIStyle(); s.normal.background = texture; s.border = new RectOffset(border,border,border,border); return s; }
         private static Texture2D Rounded(int size,float radius,Color fill,Color border,float borderWidth,bool bevel)
@@ -52,6 +53,33 @@ namespace ContainerDefense
                     c = new Color(shade,shade,shade,1);
                 }
                 c.a *= inside; t.SetPixel(x,y,c);
+            }
+            t.Apply(); return t;
+        }
+        // Opaque card: solid fill, 2px light frame, and a darker bevel band just inside the frame.
+        private static Texture2D Framed(int size,float radius,Color fill,Color border,Color bevel)
+        {
+            var t = new Texture2D(size,size,TextureFormat.RGBA32,false) { filterMode = FilterMode.Bilinear,wrapMode = TextureWrapMode.Clamp,name = "HUD framed" };
+            for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) {
+                float d = RoundedDistance(x + .5f,y + .5f,size,radius);
+                Color c = fill;
+                float inner = -d - 2;   // distance inside the frame
+                if (inner < 6) c = Color.Lerp(bevel,fill,Mathf.Clamp01(inner / 6f));
+                if (d > -2.5f) c = border;
+                c.a = Mathf.Clamp01(.5f - d); t.SetPixel(x,y,c);
+            }
+            t.Apply(); return t;
+        }
+        // Button face: white so it tints, with a dark rim, a lower lip (raised) or none (pressed).
+        private static Texture2D Face(int size,float radius,bool pressed)
+        {
+            var t = new Texture2D(size,size,TextureFormat.RGBA32,false) { filterMode = FilterMode.Bilinear,wrapMode = TextureWrapMode.Clamp,name = pressed ? "Button pressed" : "Button raised" };
+            for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) {
+                float d = RoundedDistance(x + .5f,y + .5f,size,radius);
+                float shade = pressed ? .86f : y > size * .52f ? 1 : .9f;
+                if (!pressed && y < 7) shade = .62f;                 // lower lip
+                if (d > -2.5f) shade = .38f;                          // dark rim
+                t.SetPixel(x,y,new Color(shade,shade,shade,Mathf.Clamp01(.5f - d)));
             }
             t.Apply(); return t;
         }
@@ -77,7 +105,7 @@ namespace ContainerDefense
             long key = size * 1000 + (strong ? 100 : 0) + (int)align * 2 + (wrap ? 1 : 0);
             GUIStyle s;
             if (!textStyles.TryGetValue(key,out s)) {
-                s = new GUIStyle { font = strong ? bold : regular,fontSize = size,alignment = align,wordWrap = wrap,clipping = TextClipping.Clip };
+                s = new GUIStyle { font = strong ? display : regular,fontSize = size,alignment = align,wordWrap = wrap,clipping = TextClipping.Clip };
                 s.normal.textColor = Color.white; textStyles[key] = s;
             }
             return s;
@@ -98,20 +126,53 @@ namespace ContainerDefense
         }
         public static Color FillFor(ButtonKind kind)
         { return kind == ButtonKind.Primary ? PrimaryFill : kind == ButtonKind.Play ? PlayFill : kind == ButtonKind.Danger ? DangerFill : SecondaryFill; }
-        // Bevelled button with white bold outlined text. Returns true when clicked.
+        // The one button style: raised face with a lip, pressed (sinks, no lip), disabled (grey, flat text),
+        // optional icon on the left. Returns true when clicked.
         public static bool Button(Rect r,string text,ButtonKind kind,bool enabled = true,bool selected = false,int size = Label)
+        { return Button(r,text,kind,null,enabled,selected,size); }
+        public static bool Button(Rect r,string text,ButtonKind kind,string icon,bool enabled = true,bool selected = false,int size = Label)
         {
             Ensure(); HudAudit.Interactive(r,text);
             // Always issue the control so IMGUI ids stay stable when a button toggles enabled.
             bool clicked = GUI.Button(r,GUIContent.none,GUIStyle.none) && enabled;
             if (Event.current.type == EventType.Repaint) {
-                bool hover = enabled && r.Contains(Event.current.mousePosition);
-                Color fill = enabled ? FillFor(kind) : DisabledFill; if (hover) fill = Color.Lerp(fill,Color.white,.12f);
-                var old = GUI.color; GUI.color = fill; buttonStyle.Draw(r,false,false,false,false); GUI.color = old;
+                bool over = enabled && r.Contains(Event.current.mousePosition), pressed = over && Input.GetMouseButton(0);
+                Color fill = enabled ? FillFor(kind) : DisabledFill; if (over && !pressed) fill = Color.Lerp(fill,Color.white,.1f);
+                var face = pressed ? new Rect(r.x,r.y + 3,r.width,r.height - 3) : r;
+                var old = GUI.color; GUI.color = fill; (pressed ? pressedStyle : buttonStyle).Draw(face,false,false,false,false); GUI.color = old;
                 if (selected) Ring(r);
-                OutlinedText(new Rect(r.x + 10,r.y + 4,r.width - 20,r.height - 12),text,size,enabled ? Ink : DisabledText,TextAnchor.MiddleCenter);
+                var content = new Rect(face.x + 12,face.y + 4,face.width - 24,face.height - (pressed ? 8 : 12));
+                if (!string.IsNullOrEmpty(icon)) {
+                    float s = Mathf.Min(content.height * .62f,44);
+                    bool iconOnly = string.IsNullOrEmpty(text), stacked = !iconOnly && face.width < face.height * 1.6f;
+                    if (stacked) {
+                        s = Mathf.Min(content.height * .5f,44);
+                        var top = new Rect(content.center.x - s / 2,content.y + 2,s,s);
+                        var fade = GUI.color; if (!enabled) GUI.color = new Color(1,1,1,.45f); HudIcons.Draw(top,icon); GUI.color = fade;
+                        OutlinedText(new Rect(content.x - 6,top.yMax,content.width + 12,content.yMax - top.yMax + 2),text,size,enabled ? Ink : DisabledText,TextAnchor.MiddleCenter);
+                        return clicked;
+                    }
+                    var ir = iconOnly ? new Rect(content.center.x - s / 2,content.center.y - s / 2,s,s) : new Rect(content.x,content.center.y - s / 2,s,s);
+                    var c = GUI.color; if (!enabled) GUI.color = new Color(1,1,1,.45f); HudIcons.Draw(ir,icon); GUI.color = c;
+                    if (!iconOnly) content = new Rect(content.x + s + 6,content.y,content.width - s - 6,content.height);
+                }
+                if (!string.IsNullOrEmpty(text)) OutlinedText(content,text,size,enabled ? Ink : DisabledText,TextAnchor.MiddleCenter);
             }
             return clicked;
+        }
+        // Game title in the display font: a cream line over a gold line, each with a thick dark outline and a drop shadow.
+        public static void Logo(Rect r)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            float line = r.height / 2; int size = Mathf.RoundToInt(Mathf.Min(line * 1.05f,r.width / 6.2f));
+            string[] words = { "CONTAINER","DEFENSE" }; Color[] colours = { Hex(0xFFF1D6),Hex(0xFFC23A) };
+            for (int i = 0; i < 2; i++) {
+                var lr = new Rect(r.x + i * size * .5f,r.y + i * line,r.width,line); var style = TextStyle(size,true,TextAnchor.MiddleLeft,false); var old = GUI.color;
+                GUI.color = new Color(0,0,0,.55f); GUI.Label(new Rect(lr.x + 4,lr.y + 6,lr.width,lr.height),words[i],style);
+                GUI.color = Hex(0x2A1A10);
+                for (int k = 0; k < 8; k++) { float a = k * Mathf.PI / 4; GUI.Label(new Rect(lr.x + Mathf.Cos(a) * 3.5f,lr.y + Mathf.Sin(a) * 3.5f,lr.width,lr.height),words[i],style); }
+                GUI.color = colours[i]; GUI.Label(lr,words[i],style); GUI.color = old;
+            }
         }
         public static void OutlinedText(Rect r,string text,int size,Color color,TextAnchor align)
         {
@@ -225,6 +286,14 @@ namespace ContainerDefense
                         float hx = Mathf.Abs(u) * 1.05f, hy = -v * 1.05f + .15f;
                         float d = Mathf.Pow(hx * hx + hy * hy - .5f,3) - hx * hx * hy * hy * hy;
                         if (d < .02f) c = outline; if (d < 0) c = HudTheme.Hex(0xFF5A64); break;
+                    }
+                    case "icon_lock": {
+                        // Chunky padlock: gold shackle over a rounded body with a dark keyhole.
+                        bool shackle = v > .05f && v < .78f && Mathf.Abs(Mathf.Sqrt(u * u + (v - .3f) * (v - .3f) * 1.2f) - .36f) < .1f && v > .25f;
+                        bool body = Mathf.Abs(u) < .55f && v > -.75f && v < .2f;
+                        if (shackle) c = HudTheme.Hex(0xC9CFE0); if (body) c = HudTheme.Hex(0xFFD04A);
+                        if (body && (Mathf.Abs(u) > .47f || v < -.67f || v > .12f)) c = HudTheme.Hex(0xB8862A);
+                        if (body && Mathf.Abs(u) < .08f && v > -.45f && v < -.05f) c = HudTheme.Hex(0x1E2230); break;
                     }
                     case "round_frame": {
                         // Navy corners with a round window and a slate rim: laid over a square portrait it reads as a round frame.

@@ -13,9 +13,8 @@ namespace ContainerDefense
             // Top row: brand, profile, rank, charisma. Cards are fixed widths; spare width is margin.
             var top = Cut.Top(ref area,120,24);
             var charisma = Cut.Right(ref top,300,G); var rank = Cut.Right(ref top,280,G); var profile = Cut.Right(ref top,Mathf.Min(480,top.width * .55f),G);
-            var logo = MenuArtwork.Get("Generated/logo");
-            if (logo != null) { float lh = Mathf.Min(top.height + 40,top.width * logo.height / logo.width); GUI.DrawTexture(new Rect(top.x,top.y - 16,lh * logo.width / logo.height,lh),logo,ScaleMode.ScaleToFit,true); }
-            else HudTheme.Text(top,"CONTAINER DEFENSE",HudTheme.Title,HudTheme.Gold,true);
+            // Title as live text in the display font: two stacked lines, dark outline and drop shadow drawn in code.
+            HudTheme.Logo(new Rect(top.x,top.y - 6,top.width,top.height + 12));
             HudTheme.Panel(profile); var p = Cut.Inset(profile,12);
             Portrait(Cut.Left(ref p,96,G),session.Inventory.Equipped(account.Selected),true);
             HudTheme.Text(Cut.Top(ref p,40),account.Social.Profile.Username,HudTheme.Body,HudTheme.Ink,true);
@@ -35,10 +34,10 @@ namespace ContainerDefense
             var nav = Cut.Bottom(ref area,Touch,24);
             if (HudTheme.Button(Cut.Right(ref nav,Mathf.Min(440,nav.width * .3f),24),"PLAY",ButtonKind.Play,true,false,HudTheme.CardTitle)) session.Play();
             var navButtons = Cut.Row(Cut.Left(ref nav,Mathf.Min(nav.width,4 * 260 + 3 * G)),4,G);
-            if (HudTheme.Button(navButtons[0],"RANKED",ButtonKind.Secondary,true,false,HudTheme.Body)) OpenRanked();
-            if (HudTheme.Button(navButtons[1],"LEADERBOARD",ButtonKind.Secondary)) OpenLeaderboards(LeaderboardKind.Ranked);
-            if (HudTheme.Button(navButtons[2],"STICKERS",ButtonKind.Secondary,true,false,HudTheme.Body)) ShowStickers();
-            if (HudTheme.Button(navButtons[3],"COLLECTION",ButtonKind.Secondary)) OpenCollection(account.Selected);
+            if (HudTheme.Button(navButtons[0],"RANKED",ButtonKind.Secondary,"icon_skull",true,false,HudTheme.Body)) OpenRanked();
+            if (HudTheme.Button(navButtons[1],"LEADERBOARD",ButtonKind.Secondary,"icon_up"))  OpenLeaderboards(LeaderboardKind.Ranked);
+            if (HudTheme.Button(navButtons[2],"STICKERS",ButtonKind.Secondary,"icon_heart",true,false,HudTheme.Body)) ShowStickers();
+            if (HudTheme.Button(navButtons[3],"COLLECTION",ButtonKind.Secondary,"icon_house")) OpenCollection(account.Selected);
             // Notice slot above the navigation: locked-character info or a save problem.
             var notice = Cut.Bottom(ref area,56,G);
             string message = session.SaveDirty ? session.SaveStatus : !account.IsUnlocked(inspected) ? session.Characters.Get(inspected).Name + " unlocks at level " + session.Characters.Get(inspected).UnlockLevel + "  ·  " + passiveNames[(int)inspected] : null;
@@ -57,11 +56,14 @@ namespace ContainerDefense
                 HudTheme.Panel(card,false); if (selected) HudTheme.Ring(card);
                 var inner = Cut.Inset(card,12);
                 var art = Cut.Top(ref inner,inner.width,8);
-                var old = GUI.color; if (!unlocked) GUI.color = new Color(.45f,.47f,.55f,1);
+                HudTheme.Fill(art,HudTheme.Hex(0x141A2C),10);
+                var old = GUI.color; if (!unlocked) GUI.color = new Color(.32f,.34f,.42f,1);
                 Portrait(art,session.Collections.DefaultSkin(d.Id),false); GUI.color = old;
+                // Locked: greyed art, padlock badge and the level it unlocks at.
+                if (!unlocked) { var lockRect = Cut.Center(art,Mathf.Min(88,art.width * .45f),Mathf.Min(88,art.width * .45f)); HudTheme.Fill(lockRect,HudTheme.Hex(0x111627,.85f),lockRect.width / 2); HudIcons.Draw(Cut.Inset(lockRect,12),"icon_lock"); }
                 HudTheme.Text(Cut.Top(ref inner,42),d.Name,HudTheme.CardTitle,selected ? HudTheme.Gold : HudTheme.Ink,true);
                 HudTheme.Text(Cut.Top(ref inner,30),passiveNames[i],HudTheme.Label,HudTheme.Ink);
-                HudTheme.Text(inner,!unlocked ? "Level " + d.UnlockLevel : selected ? "Selected" : "Tap to select",HudTheme.Label,selected ? HudTheme.Gold : HudTheme.Muted,true);
+                HudTheme.Text(inner,!unlocked ? "Unlocks at Lv " + d.UnlockLevel : selected ? "Selected" : "Tap to select",HudTheme.Label,!unlocked ? HudTheme.Bad : selected ? HudTheme.Gold : HudTheme.Muted,true);
                 if (Hit(card,"Character " + d.Name)) { inspected = d.Id; if (unlocked) session.SelectCharacter(d.Id); }
             }
         }

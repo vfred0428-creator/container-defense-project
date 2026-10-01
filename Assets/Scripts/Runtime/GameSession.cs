@@ -175,6 +175,7 @@ namespace ContainerDefense
 
         private void Update()
         {
+            MenuArtwork.Prepare();
             // Esc backs out of the full map or a scouted base before it pauses.
             if (input.PausePressed) { if (Started && !Paused && View.Mode == ViewMode.FullMap) View.CloseFullMap(); else if (Started && !Paused && View.ViewingOther && !Match.Players[0].Eliminated) View.ReturnHome(); else TogglePause(); }
             if (Started) View.Refresh();
