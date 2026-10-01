@@ -68,6 +68,12 @@ public static class MatchViewTests
             }
             v.ReturnHome(); True(v.CanCommand);
         });
+        Check("Scouting can be switched off with one flag; spectators still watch", () => {
+            var m = New(); var v = new MatchView(m); Claim(m,0,4); Claim(m,1,9); Claim(m,2,0); v.Refresh();
+            MatchView.AllowScouting = false;
+            try { False(v.View(1)); True(v.ViewingOwnBase); m.CommandsFor(0).Forfeit(); v.Refresh(); True(v.Spectating && v.Mode == ViewMode.Base && v.ViewedPlayer != 0); }
+            finally { MatchView.AllowScouting = true; }
+        });
         return passed + " match view scenarios passed.";
     }
     private static MatchRules Rules() { return new MatchRules { StartingGold = 10000,PreparationSeconds = 30,UpgradeSeconds = 0,BossHealth = 100000,BossEnragePerSecond = 0,BossDamage = .01f }; }

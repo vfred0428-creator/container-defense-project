@@ -44,6 +44,7 @@ namespace ContainerDefense
             hud.OpenSocial(2); yield return Shot("06-social-history");
             hud.OpenRanked(); yield return Shot("07-ranked");
             hud.OpenLeaderboards(LeaderboardKind.Charisma); yield return Shot("08-leaderboard");
+            hud.CloseRanked(); hud.OpenYard(); yield return Shot("08b-my-yard"); hud.CloseYard();
             hud.CloseRanked(); session.Play(); session.Overview = true;
             yield return new WaitForSecondsRealtime(1.2f); yield return Shot("09-match-claim");
             var m = session.Match; var bots = new LocalBotController(m);
@@ -54,6 +55,7 @@ namespace ContainerDefense
             session.ReturnToOwnHouse(); session.Overview = false; hud.ShowBuildBoard(false);
             yield return new WaitForSecondsRealtime(1f); yield return Shot("10-my-house");
             hud.ShowBuildBoard(true); yield return Shot("11-socket-selected");
+            hud.ShowBuildBoard(true); hud.BeginPlacing(WeaponKind.Rocket); yield return new WaitForSecondsRealtime(.4f); yield return Shot("11b-placing-rocket"); hud.ShowBuildBoard(false);
             session.ReturnToOwnHouse(); session.Overview = true; hud.ShowBuildBoard(false);
             yield return new WaitForSecondsRealtime(1f); yield return Shot("12-overview-claimed");
             session.Scout(2); yield return new WaitForSecondsRealtime(1f); yield return Shot("13-scouting");
@@ -67,7 +69,7 @@ namespace ContainerDefense
             if (m.Boss.TargetHouseId >= 0 && m.Houses[m.Boss.TargetHouseId].OwnerId >= 0) session.Scout(m.Houses[m.Boss.TargetHouseId].OwnerId); else session.ReturnToOwnHouse();
             yield return new WaitForSecondsRealtime(.8f);
             for (int f = 0; f < 6; f++) { for (int i = 0; i < 4; i++) { bots.Tick(1f / 30); m.Tick(1f / 30); } yield return new WaitForSecondsRealtime(.12f); yield return new WaitForEndOfFrame(); ScreenCapture.CaptureScreenshot(Path.Combine(output,"strip-" + f + ".png")); }
-            hud.RoomOpen = true; session.Overview = false; yield return Shot("16-my-room"); hud.RoomOpen = false;
+            session.ReturnToOwnHouse(); hud.RoomOpen = true; session.Overview = false; yield return new WaitForSecondsRealtime(.6f); yield return Shot("16-my-room"); hud.RoomOpen = false;
             session.TogglePause(); yield return Shot("17-pause"); session.TogglePause();
             for (int p = 1; p < 6; p++) m.TryForfeit(p);
             yield return new WaitForSecondsRealtime(1f); yield return Shot("18-results");

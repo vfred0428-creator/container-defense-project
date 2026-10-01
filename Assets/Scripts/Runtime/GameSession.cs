@@ -79,7 +79,9 @@ namespace ContainerDefense
             Match.Changed += OnMatchEvent; commands = Match.CommandsFor(0); View = new MatchView(Match,0);
             bots = new LocalBotController(Match);
             accumulated = 0; walkingTo = -1; Paused = false;
-            Arena.Bind(Match,Collections.Skin(Inventory.Equipped(Account.Selected))); Notify("Run to a free door. Press E to claim it.");
+            Arena.Bind(Match,Collections.Skin(Inventory.Equipped(Account.Selected)));
+            var boards = new YardData[6]; boards[0] = Account.Yard; for (int i = 1; i < 6; i++) boards[i] = YardLayout.RandomPreset(matchNumber * 31 + i);
+            Arena.SetYards(boards); Notify("Run to a free door. Press E to claim it.");
         }
 
         public void Play() { StartMatch(false); }
@@ -100,7 +102,9 @@ namespace ContainerDefense
         public void ViewHouse(int house) { View.SelectHouse(house); }
         public void WalkToHouse(int house)
         { if (Started && !Paused && !Scouting && house >= 0 && house < Match.Houses.Count && Match.Players[0].HouseId < 0) walkingTo = house; }
-        public bool PlaceWeapon(int slot,WeaponKind kind) { return CanBuild && commands.Place(slot,kind); }
+        public bool PlaceWeapon(int slot,WeaponKind kind,int spot = -1) { return CanBuild && commands.Place(slot,kind,spot); }
+        public bool MoveWeaponToSpot(int slot,int spot) { return CanBuild && commands.MoveToSpot(slot,spot); }
+        public bool SaveYard(YardData yard) { if (Started) return false; Account.SetYard(yard); PersistAccount(); return true; }
         public bool UpgradeWeapon(int slot) { return CanBuild && commands.Upgrade(slot); }
         public bool MoveWeapon(int from,int to) { return CanBuild && commands.MoveWeapon(from,to); }
         public bool SellWeapon(int slot) { return CanBuild && commands.Sell(slot); }

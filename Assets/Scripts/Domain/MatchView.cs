@@ -7,6 +7,8 @@ namespace ContainerDefense.Domain
     // Pure logic over read-only match state, so it can be tested without Unity.
     public sealed class MatchView
     {
+        // Portrait-tap scouting of other bases (vhi chose to keep it). Set false to switch peeking off.
+        public static bool AllowScouting = true;
         private readonly MatchSimulation match;
         private readonly int local;
         public ViewMode Mode { get; private set; }
@@ -35,7 +37,7 @@ namespace ContainerDefense.Domain
         public bool View(int player)
         {
             if (player == local && !Local.Eliminated && Local.HouseId >= 0) { ReturnHome(); return true; }
-            if (!Viewable(player)) return false;
+            if (!Viewable(player) || (!AllowScouting && !Local.Eliminated)) return false;
             Mode = ViewMode.Base; ViewedPlayer = player; return true;
         }
         public void ReturnHome()

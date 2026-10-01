@@ -27,12 +27,12 @@ namespace ContainerDefense
             GUI.matrix = Matrix4x4.TRS(Vector3.zero,Quaternion.identity,Vector3.one * scale);
             if (!session.Started) {
                 HudLayout.Clear();
-                if (rankedOpen) RankedScreen(); else if (socialOpen) SocialScreen(); else if (collectionOpen) CollectionScreen(); else TitleScreen();
+                if (yardOpen) YardScreen(); else if (rankedOpen) RankedScreen(); else if (socialOpen) SocialScreen(); else if (collectionOpen) CollectionScreen(); else TitleScreen();
                 return;
             }
             var layout = PlanMatch();
             session.Arena.DrawLabels(); HouseInterior();
-            MapControls(layout); FullMapOverlay(layout); ThreatEdge(); TopBar(layout); LeftColumn(layout); MiniMap(layout.MiniMap); HouseBoard(layout.Board); Toasts(layout.Toasts);
+            MapControls(layout); FullMapOverlay(layout); PadTargets(layout); ThreatEdge(); TopBar(layout); LeftColumn(layout); MiniMap(layout.MiniMap); HouseBoard(layout.Board); Toasts(layout.Toasts);
             if (session.Paused) PauseScreen();
             else if (session.Match.Finished) Results();
         }

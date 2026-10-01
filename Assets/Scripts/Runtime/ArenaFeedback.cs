@@ -63,10 +63,10 @@ namespace ContainerDefense
             if (match == null) return;
             if (e.Kind == MatchEventKind.Shot && e.HouseId >= 0) {
                 var w = match.Houses[e.HouseId].Weapons[Mathf.Clamp((int)e.Amount,0,2)];
-                if (w != null) Launch(w.Kind,Socket(e.HouseId,(int)e.Amount) + new Vector3(0,.5f,0),Project(match.Boss.Position) + new Vector3(Random.Range(-.6f,.6f),.6f + Random.Range(-.3f,.5f),0));
+                if (w != null) Launch(w.Kind,Socket(e.HouseId,(int)e.Amount) + new Vector3(0,.5f,0),BossAim() + new Vector3(Random.Range(-.6f,.6f),Random.Range(-.3f,.5f),0));
                 float dealt = lastBossHealth < 0 ? 0 : lastBossHealth - match.Boss.Health; lastBossHealth = match.Boss.Health;
                 // Only while you look at one base: on the full map numbers would be unreadable specks.
-                if (dealt > .5f && session.View.Mode == ViewMode.Base && floaters.Count < 8) floaters.Add(new Floater { Text = Mathf.RoundToInt(dealt).ToString(),At = Project(match.Boss.Position) + new Vector3(Random.Range(-2.2f,2.2f),2.6f + Random.Range(0f,.8f),0),Start = Time.time,Colour = HudTheme.Hex(0xFFE27A) });
+                if (dealt > .5f && session.View.Mode == ViewMode.Base && floaters.Count < 8) floaters.Add(new Floater { Text = Mathf.RoundToInt(dealt).ToString(),At = BossAim() + new Vector3(Random.Range(-2.2f,2.2f),2f + Random.Range(0f,.8f),0),Start = Time.time,Colour = HudTheme.Hex(0xFFE27A) });
             }
             if (e.Kind == MatchEventKind.DoorHit && e.HouseId >= 0)
                 floaters.Add(new Floater { Text = "-" + Mathf.RoundToInt(e.Amount),At = HousePoint(e.HouseId,new Vector2(.5f,.35f)),Start = Time.time,Colour = HudTheme.Hex(0xFF6B6B) });

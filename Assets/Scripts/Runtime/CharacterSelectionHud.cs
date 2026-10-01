@@ -43,11 +43,12 @@ namespace ContainerDefense
             var nav = Cut.Bottom(ref area,Touch,24);
             if (HudTheme.Button(Cut.Right(ref nav,Mathf.Min(440,nav.width * .3f),24),"PLAY",ButtonKind.Play,true,false,HudTheme.CardTitle)) session.Play();
             if (HudTheme.Button(Cut.Right(ref nav,Touch,24),"",ButtonKind.Secondary,"icon_gear")) settingsOpen = true;
-            var navButtons = Cut.Row(Cut.Left(ref nav,Mathf.Min(nav.width,4 * 260 + 3 * G)),4,G);
+            var navButtons = Cut.Row(Cut.Left(ref nav,Mathf.Min(nav.width,5 * 250 + 4 * G)),5,G);
             if (HudTheme.Button(navButtons[0],"RANKED",ButtonKind.Secondary,"icon_skull",true,false,HudTheme.Body)) OpenRanked();
             if (HudTheme.Button(navButtons[1],"LEADERBOARD",ButtonKind.Secondary,"icon_up"))  OpenLeaderboards(LeaderboardKind.Ranked);
             if (HudTheme.Button(navButtons[2],"STICKERS",ButtonKind.Secondary,"icon_heart",true,false,HudTheme.Body)) ShowStickers();
             if (HudTheme.Button(navButtons[3],"COLLECTION",ButtonKind.Secondary,"icon_house")) OpenCollection(account.Selected);
+            if (HudTheme.Button(navButtons[4],"MY YARD",ButtonKind.Secondary,"prop_plant")) OpenYard();
             // Notice slot above the navigation: locked-character info or a save problem.
             var notice = Cut.Bottom(ref area,56,G);
             string message = session.SaveDirty ? session.SaveStatus : !account.IsUnlocked(inspected) ? session.Characters.Get(inspected).Name + " unlocks at level " + session.Characters.Get(inspected).UnlockLevel + "  ·  " + passiveNames[(int)inspected] : null;

@@ -2,13 +2,16 @@ using ContainerDefense.Domain;
 using UnityEngine;
 namespace ContainerDefense
 {
-    // Bottom house panel: at most 30% of the screen. Your house (or the one you are viewing) with its
-    // three rooftop sockets as large cards that never scroll. Viewing other houses is read-only.
+    // Bottom house panel: at most 30% of the screen. Your house (or the one you are viewing) with its three
+    // weapon slots as large cards. Weapons stand on build pads in the yard: pick a weapon, then tap a free pad;
+    // MOVE then a free pad moves it. Viewing other houses is read-only.
     public sealed partial class MatchHud
     {
         private int selectedSlot = -1, movingSlot = -1;
         private bool picking;
-        public void ShowBuildBoard(bool visible) { selectedSlot = visible ? 0 : -1; movingSlot = -1; picking = false; }
+        private int placingKind = -1;   // weapon chosen in the picker, waiting for a pad tap
+        public void BeginPlacing(WeaponKind kind) { placingKind = (int)kind; picking = false; }
+        public void ShowBuildBoard(bool visible) { selectedSlot = visible ? 0 : -1; movingSlot = -1; picking = false; placingKind = -1; }
         private void HouseBoard(Rect panel)
         {
             var m = session.Match; var viewed = m.Players[session.ViewedPlayer];
@@ -18,7 +21,9 @@ namespace ContainerDefense
             bool own = session.View.CanCommand && !session.Paused;
             var left = Cut.Left(ref inner,432,24);
             HouseSummary(left,h,viewed,own);
-            if (own && picking && selectedSlot >= 0) WeaponPicker(inner,h); else Sockets(inner,h,own);
+            if (!own) { placingKind = -1; movingSlot = -1; }
+            if (own && (placingKind >= 0 || movingSlot >= 0)) PadPrompt(inner,h);
+            else if (own && picking && selectedSlot >= 0) WeaponPicker(inner,h); else Sockets(inner,h,own);
         }
         private void ClaimBoard(Rect inner,PlayerState viewed)
         {
@@ -80,7 +85,7 @@ namespace ContainerDefense
             var w = h.Weapons[slot]; bool selected = own && selectedSlot == slot;
             HudTheme.Card(card); if (selected) HudTheme.Ring(card);
             var inner = Cut.Inset(card,14);
-            var actions = own && (selected || (movingSlot >= 0 && !w.Present)) ? Cut.Bottom(ref inner,Touch,8) : Rect.zero;
+            var actions = own && selected ? Cut.Bottom(ref inner,Touch,8) : Rect.zero;
             var icon = Cut.Right(ref inner,Mathf.Min(150,inner.height),8);
             if (w.Present) session.Arena.DrawWeaponIcon(Cut.Center(icon,icon.width,icon.width),w.Kind);
             var d = w.Present ? WeaponCatalog.Get(w.Kind) : null;
@@ -92,17 +97,42 @@ namespace ContainerDefense
             var body = new Rect(card.x,card.y,card.width,actions.height > 0 ? actions.y - card.y - 4 : card.height);
             if (body.height >= Touch && Hit(body,"Socket " + (slot + 1))) { selectedSlot = selectedSlot == slot && movingSlot < 0 ? -1 : slot; picking = false; }
             if (actions.height <= 0) return;
-            if (movingSlot >= 0) {
-                if (movingSlot == slot) { if (HudTheme.Button(actions,"CANCEL MOVE",ButtonKind.Secondary)) movingSlot = -1; }
-                else if (!w.Present && HudTheme.Button(actions,"MOVE HERE",ButtonKind.Primary) && session.MoveWeapon(movingSlot,slot)) { selectedSlot = slot; movingSlot = -1; }
-                return;
-            }
             if (!w.Present) { if (HudTheme.Button(actions,"BUILD",ButtonKind.Primary)) picking = true; return; }
             int cost = session.Match.WeaponUpgradeCost(h.HouseId,slot);
             var sell = Cut.Right(ref actions,Touch + 12,8); var move = Cut.Right(ref actions,Touch,8);
             if (HudTheme.Button(actions,cost < 0 ? "MAX" : "UPGRADE\n" + HudTheme.Number(cost),ButtonKind.Primary,cost >= 0 && !w.Building && session.Match.Players[0].Gold >= cost)) session.UpgradeWeapon(slot);
             if (HudTheme.Button(move,"MOVE",ButtonKind.Secondary,!w.Building)) movingSlot = slot;
             if (HudTheme.Button(sell,"SELL\n+" + HudTheme.Number(session.Match.SellValue(h.HouseId,slot)),ButtonKind.Secondary,!w.Building)) { session.SellWeapon(slot); movingSlot = -1; }
+        }
+        // Shown while a weapon waits for a pad: which weapon, what to do, and a cancel.
+        private void PadPrompt(Rect area,HouseScout h)
+        {
+            HudTheme.Card(area); var inner = Cut.Inset(area,14);
+            var cancel = Cut.Right(ref inner,200,G);
+            string what = placingKind >= 0 ? WeaponCatalog.Get((WeaponKind)placingKind).Name : WeaponCatalog.Get(h.Weapons[movingSlot].Kind).Name;
+            HudTheme.Text(Cut.Top(ref inner,44,6),(placingKind >= 0 ? "Place your " : "Move your ") + what,HudTheme.CardTitle,HudTheme.Ink,true);
+            HudTheme.Text(inner,"Tap a glowing pad in your yard.",HudTheme.Body,HudTheme.Gold,true);
+            if (HudTheme.Button(Cut.Center(cancel,cancel.width,Touch),"CANCEL",ButtonKind.Secondary,true,false,HudTheme.Body)) { placingKind = -1; movingSlot = -1; }
+        }
+        // Free pads become tap targets on the board while placing or moving.
+        private void PadTargets(MatchLayout l)
+        {
+            if (placingKind < 0 && movingSlot < 0) return;
+            var m = session.Match; int house = m.Players[0].HouseId; if (house < 0 || session.Arena.BoardHouse != house) return;
+            var weapons = m.Houses[house].Weapons;
+            for (int pad = 0; pad < YardLayout.PadCount; pad++) {
+                bool taken = false; for (int s = 0; s < 3; s++) if (weapons[s] != null && weapons[s].Spot == pad && s != movingSlot) taken = true;
+                if (taken) continue;
+                session.Arena.HighlightPad(pad,true);
+                var px = session.Arena.PadScreenRect(pad); var r = new Rect(px.x / scale,px.y / scale,px.width / scale,px.height / scale);
+                r = Cut.Center(r,Mathf.Max(r.width,Touch),Mathf.Max(r.height,Touch));
+                if (r.Overlaps(l.Board) || r.Overlaps(l.Strip) || r.Overlaps(l.MiniMap) || r.Overlaps(l.Left) || r.Overlaps(l.Boss) || r.Overlaps(l.Toasts)) continue;
+                if (!Hit(r,"Pad " + pad)) continue;
+                if (placingKind >= 0) {
+                    int slot = selectedSlot >= 0 && weapons[selectedSlot] == null ? selectedSlot : System.Array.FindIndex(weapons,w => w == null);
+                    if (slot >= 0 && session.PlaceWeapon(slot,(WeaponKind)placingKind,pad)) { placingKind = -1; selectedSlot = slot; } else session.Notify("Cannot build there right now.");
+                } else if (session.MoveWeaponToSpot(movingSlot,pad)) movingSlot = -1;
+            }
         }
         private void WeaponPicker(Rect area,HouseScout h)
         {
@@ -115,7 +145,8 @@ namespace ContainerDefense
                 var d = WeaponCatalog.Get((WeaponKind)i);
                 bool affordable = session.Match.Players[0].Gold >= d.Cost && !session.Match.Houses[h.HouseId].IsBuilding;
                 if (HudTheme.Button(buttons[i],d.Name.ToUpperInvariant() + "\n" + d.Cost + " gold",ButtonKind.Primary,affordable)) {
-                    if (session.PlaceWeapon(selectedSlot,d.Id)) picking = false; else session.Notify("Cannot build there right now.");
+                    // Next step: tap a free pad in the yard.
+                    placingKind = (int)d.Id; picking = false;
                 }
             }
         }

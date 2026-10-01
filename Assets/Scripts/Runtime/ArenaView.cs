@@ -96,6 +96,7 @@ namespace ContainerDefense
                 }
             }
             BuildFeedback();
+            BuildBoard();
         }
         private static int Depth(float y) { return 500 - Mathf.RoundToInt(y * 20); }
         private Sprite Generated(string id,Vector2 pivot)
@@ -241,7 +242,7 @@ namespace ContainerDefense
         }
         // A point on a house's art, given in normalised coordinates from its top-left corner.
         public Vector3 HousePoint(int house,Vector2 fromTopLeft)
-        { var r = houseRects[house]; return new Vector3(r.x + r.width * fromTopLeft.x,r.yMax - r.height * fromTopLeft.y,0); }
+        { if (OnBoard(house)) return BoardHousePoint(fromTopLeft); var r = houseRects[house]; return new Vector3(r.x + r.width * fromTopLeft.x,r.yMax - r.height * fromTopLeft.y,0); }
         private bool GeneratedHouses { get { return houseArt[0] != null; } }
         public void Bind(MatchSimulation simulation,SkinDefinition humanSkin = null)
         {
@@ -258,7 +259,10 @@ namespace ContainerDefense
         public static Vector3 Project(Point2 p) { return new Vector3(p.X * ScaleX,p.Z * ScaleZ,0); }
         // Weapons sit on the roof's turret pads; the simulation's socket point stays authoritative for range.
         private Vector3 Socket(int house,int slot)
-        { return GeneratedHouses ? HousePoint(house,RoofPads[slot]) : Project(match.WeaponPoint(house,slot)) + new Vector3(0,.55f,0); }
+        {
+            if (OnBoard(house)) { var w = match.Houses[house].Weapons[slot]; return PadPoint(w != null && w.Spot >= 0 ? w.Spot : slot) + new Vector3(0,.35f,0); }
+            return GeneratedHouses ? HousePoint(house,RoofPads[slot]) : Project(match.WeaponPoint(house,slot)) + new Vector3(0,.55f,0);
+        }
         public Vector2 ScreenPoint(Point2 p) { return ScreenPoint(Project(p)); }
         public Vector2 ScreenPoint(Vector3 world)
         { var value = Camera.WorldToScreenPoint(world); return new Vector2(value.x,Screen.height - value.y); }
@@ -289,10 +293,13 @@ namespace ContainerDefense
             bool playing = session.Started; float t = match.Elapsed;
             var viewed = match.Players[session.ViewedPlayer]; bool focus = playing && !session.Overview && viewed.HouseId >= 0;
             float size; Vector3 destination;
-            if (focus) { var r = houseRects[viewed.HouseId]; Frame(new Rect(r.center.x - 8,r.y - 1.2f,16,r.height + 2.4f),4.5f,out size,out destination); }
+            UpdateBoard(playing);
+            // Base view frames the own-board stage; the claim race and full map frame the neighbourhood.
+            if (focus && boardHouseId >= 0) Frame(boardFrame,5,out size,out destination);
             else Frame(mapBounds,8,out size,out destination);
-            Camera.orthographicSize = Mathf.Lerp(Camera.orthographicSize,size,1 - Mathf.Exp(-Time.unscaledDeltaTime * 7));
-            Camera.transform.position = Vector3.Lerp(Camera.transform.position,destination,1 - Mathf.Exp(-Time.unscaledDeltaTime * 7));
+            if (Vector3.Distance(Camera.transform.position,destination) > 100) { Camera.transform.position = destination; Camera.orthographicSize = size; }
+            Camera.orthographicSize = Mathf.Lerp(Camera.orthographicSize,size,1 - Mathf.Exp(-Time.unscaledDeltaTime * 9));
+            Camera.transform.position = Vector3.Lerp(Camera.transform.position,destination,1 - Mathf.Exp(-Time.unscaledDeltaTime * 9));
             foreach (var entry in entryMarkers) {
                 bool active = entry.Key == match.Boss.EntryNode && match.Phase == MatchPhase.Preparation;
                 entry.Value.transform.localScale = Vector3.one * (active ? 1.5f + Mathf.Sin(t * 4) * .06f : 1.1f);
@@ -309,13 +316,14 @@ namespace ContainerDefense
                 if (smoke[h].enabled) {
                     var roof = HousePoint(h,new Vector2(.6f,.1f)); float puff = Mathf.Repeat(t * .5f + h * .37f,1);
                     smoke[h].transform.position = roof + new Vector3(Mathf.Sin(t + h) * .3f,puff * 1.6f,0); smoke[h].transform.localScale = Vector3.one * (1.2f + puff * 1.6f);
-                    smoke[h].color = new Color(.15f,.13f,.16f,.7f * (1 - puff)); smoke[h].sortingOrder = homes[h].sortingOrder + 3;
+                    smoke[h].color = new Color(.15f,.13f,.16f,.7f * (1 - puff)); smoke[h].sortingOrder = (OnBoard(h) ? boardHouse.sortingOrder : homes[h].sortingOrder) + 3;
                 }
                 for (int s = 0; s < 3; s++) {
                     var w = home.Weapons[s]; var render = weapons[h,s]; render.gameObject.SetActive(playing && w != null && home.Occupied);
                     if (w != null) {
-                        render.sprite = weaponArt[(int)w.Kind]; render.transform.position = Socket(h,s); render.sortingOrder = homes[h].sortingOrder + 2;
-                        render.transform.localScale = Vector3.one * (w.Building ? WeaponSize * .75f : WeaponSize);
+                        render.sprite = weaponArt[(int)w.Kind]; render.transform.position = Socket(h,s); bool board = OnBoard(h);
+                        render.sortingOrder = board ? Depth(render.transform.position.y - .6f) : homes[h].sortingOrder + 2;
+                        render.transform.localScale = Vector3.one * (w.Building ? WeaponSize * .75f : WeaponSize) * (board ? 1.7f : 1);
                         render.color = w.Building ? new Color(.6f,.75f,.85f,.6f) : Color.white;
                         Vector3 direction = bossPoint - render.transform.position;
                         // Turret art faces upper-right; mirror it toward a boss on the left.
@@ -341,11 +349,16 @@ namespace ContainerDefense
                 if (match.Finished && !p.Eliminated) pose = CharacterPose.Victory;
                 if (p.Eliminated) pose = CharacterPose.Eliminated;
                 // Sleeping residents are indoors (see VIEW MY ROOM); everyone else is out in the yard.
-                bool visible = playing && !p.Sleeping;
+                bool visible = playing && !p.Sleeping; float actorScale = .6f;
+                // On the board only its owner appears, standing in the yard by the door while at home.
+                if (boardHouseId >= 0) {
+                    bool atHome = p.HouseId == boardHouseId && !p.Eliminated && p.Position.Distance(match.Houses[boardHouseId].Entry) < 2.5f;
+                    visible = visible && atHome; point = BoardHousePoint(new Vector2(HousePivot.x,1)) + new Vector3(1.6f,-1.2f,0); actorScale = 1.1f;
+                }
                 actors[i].gameObject.SetActive(visible); actors[i].Present(point,pose,t + i * .3f,facing[i],Depth(point.y));
-                actors[i].transform.localScale *= .6f;
+                actors[i].transform.localScale *= actorScale;
                 actorShadows[i].gameObject.SetActive(visible); actorShadows[i].sortingOrder = Depth(point.y) - 1;
-                actorShadows[i].transform.position = point + new Vector3(0,.05f,0); actorShadows[i].transform.localScale = new Vector3(1.3f,.42f,1);
+                actorShadows[i].transform.position = point + new Vector3(0,.05f,0); actorShadows[i].transform.localScale = new Vector3(1.3f,.42f,1) * (actorScale / .6f);
             }
             bool bossVisible = playing && match.Boss.Phase != BossPhase.Dead;
             bossShadow.gameObject.SetActive(bossVisible); bossShadow.transform.position = bossPoint + new Vector3(0,-2.2f,0); bossShadow.transform.localScale = new Vector3(4.2f,1.1f,1);
@@ -364,7 +377,7 @@ namespace ContainerDefense
                 route.positionCount = match.Boss.RoutePath.Length + 1; route.SetPosition(0,bossPoint);
                 for (int i = 0; i < match.Boss.RoutePath.Length; i++) route.SetPosition(i + 1,Project(match.Boss.RoutePath[i]));
             }
-            Feedback(playing,t); TickFeedback(playing);
+            Feedback(playing,t); TickFeedback(playing); AuditBoardView();
         }
         private void SparkBurst(Vector3 at)
         {
@@ -415,7 +428,7 @@ namespace ContainerDefense
             if (match == null || !session.Started || Event.current.type != EventType.Repaint) return;
             var old = GUI.matrix; GUI.matrix = Matrix4x4.identity;
             DrawGrade();
-            DrawFeedbackGui();
+            DrawFeedbackGui(); DrawBoardGui();
             float ui = HudTheme.Scale;
             var bossCenter = ScreenPoint(Project(match.Boss.Position) + new Vector3(0,.6f,0));
             float unit = Mathf.Abs(ScreenPoint(Vector3.right).x - ScreenPoint(Vector3.zero).x);
