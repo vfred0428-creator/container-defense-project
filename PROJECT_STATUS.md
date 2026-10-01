@@ -101,4 +101,6 @@ Branch claude/continue-astra, local only. Astra left nothing uncommitted after 9
   - Scouting stays on (MatchView.AllowScouting).
   - The HUD audit flags any neighbour house visible in board view. It is clean at 6 sizes (TestResults/Board/final). No old camera test asserted the old framing, so none were changed.
 - **b36d5b0 Boss-kill placement:** survivors rank by damage dealt to the boss, then house HP left, then earliest claim. Ranked wins, RP and profile wins go to 1st place only.
-- **Boss HP tuning (own commit, easy to revert):** vhi picked 5-minute matches. BossHealth went from 6,500 to 77,500 and nothing else changed. The median full match went from 61 s to 302 s (70 seeds). See TestResults/Playtest/boss-hp-tuning.md; retarget with Tools/Tune-BossHealth.ps1 ($TargetMatchSeconds).
+- **2b5fefc Boss HP tuning (own commit, easy to revert):** vhi picked 5-minute matches. BossHealth went from 6,500 to 77,500 and nothing else changed. The median full match went from 61 s to 302 s (70 seeds). See TestResults/Playtest/boss-hp-tuning.md; retarget with Tools/Tune-BossHealth.ps1 ($TargetMatchSeconds).
+- **5b1a497 Music:** "Cozy Puzzle Stage Select" by MintoDog (OpenGameArt, CC0 only, credited in Assets/Audio/LICENSE.txt). It loops in the menu and matches at 40% of the Music slider, ducks during the boss warning and under jingles, and is silent when muted. No AI audio.
+- **Checks after today's round:** 136 domain + 17 Unity persistence pass. HUD audit 0. Preview build refreshed. Android module not installed (per vhi).

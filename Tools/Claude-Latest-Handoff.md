@@ -15,9 +15,9 @@
   - The pad placing flow is in HouseBoardHud.
   - MatchView.AllowScouting is the scouting flag.
 - **b36d5b0 Placement:** boss-kill survivors rank by damage, then HP, then claim time (PlayerState.ClaimedAt). Rank and wins use placement 1.
-- **Boss HP:** 77,500 for a ~5 min median (TestResults/Playtest/boss-hp-tuning.md, Tools/Tune-BossHealth.ps1).
+- **2b5fefc Boss HP:** 77,500 for a ~5 min median (TestResults/Playtest/boss-hp-tuning.md, Tools/Tune-BossHealth.ps1).
 - No old camera tests asserted the old framing, so none changed.
 
 ## Open
-- CC0 music loop: candidate found, waiting for vhi's OK to download.
+- Music: 5b1a497 adds a CC0 loop (MintoDog), 40% of the Music slider, ducked for warnings and jingles.
 - Real touch-device QA.
