@@ -1,0 +1,29 @@
+Audio used by Container Defense
+
+All sound effects and jingles are by Kenney (kenney.nl), released under Creative Commons Zero (CC0 1.0):
+http://creativecommons.org/publicdomain/zero/1.0/
+
+- Interface Sounds  https://kenney.nl/assets/interface-sounds  (CC0)
+- Impact Sounds     https://kenney.nl/assets/impact-sounds     (CC0)
+- Music Jingles     https://kenney.nl/assets/music-jingles     (CC0)
+- Sci-Fi Sounds     https://kenney.nl/assets/sci-fi-sounds     (CC0)
+
+Files in Resources/Sfx are copied unchanged from those packs and renamed by use:
+- build.ogg
+- claim.ogg
+- coin.ogg
+- defeat.ogg
+- hit.ogg
+- house_destroyed.ogg
+- house_hit.ogg
+- match_start.ogg
+- repair.ogg
+- shot_cannon.ogg
+- shot_gatling.ogg
+- shot_rocket.ogg
+- shot_slow.ogg
+- tap.ogg
+- victory.ogg
+- warning.ogg
+
+No looping music track: none of these packs contains a loop.

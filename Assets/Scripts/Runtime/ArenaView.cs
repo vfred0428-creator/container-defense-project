@@ -373,7 +373,7 @@ namespace ContainerDefense
                 float a = Random.Range(0f,Mathf.PI * 2); sparkVelocity[i] = new Vector3(Mathf.Cos(a),Mathf.Abs(Mathf.Sin(a)) + .3f,0) * Random.Range(2.5f,4.5f);
             }
         }
-        private void CoinPop(Vector3 at) { int i = nextCoin++ % coins.Length; coinStart[i] = Time.time; coinFrom[i] = at + new Vector3(Random.Range(-.8f,.8f),0,0); }
+        private void CoinPop(Vector3 at) { GameAudio.Play("coin",.35f); int i = nextCoin++ % coins.Length; coinStart[i] = Time.time; coinFrom[i] = at + new Vector3(Random.Range(-.8f,.8f),0,0); }
         // Sparks fly and fade, coins rise and fade, the boss flashes when hit, the camera shakes when your door is hit.
         private void Feedback(bool playing,float t)
         {

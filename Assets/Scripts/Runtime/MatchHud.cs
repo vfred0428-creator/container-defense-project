@@ -275,10 +275,10 @@ namespace ContainerDefense
         private void PauseScreen()
         {
             Overlay();
-            var panel = Cut.Center(safe,Mathf.Min(560,safe.width - M * 2),Mathf.Min(620,safe.height - M * 2));
-            HudTheme.Panel(panel); var inner = Cut.Inset(panel,40);
-            HudTheme.Text(Cut.Top(ref inner,72,8),"PAUSED",HudTheme.Title,HudTheme.Ink,true,TextAnchor.MiddleCenter);
-            HudTheme.Text(Cut.Bottom(ref inner,64,G),"WASD move  ·  E claim or sleep  ·  Tab spectate  ·  Esc pause",HudTheme.Label,HudTheme.Muted,false,TextAnchor.MiddleCenter,true);
+            var panel = Cut.Center(safe,Mathf.Min(620,safe.width - M * 2),Mathf.Min(820,safe.height - M * 2));
+            HudTheme.Panel(panel); var inner = Cut.Inset(panel,32);
+            HudTheme.Text(Cut.Top(ref inner,64,8),"PAUSED",HudTheme.Title,HudTheme.Ink,true,TextAnchor.MiddleCenter);
+            SoundSettings(ref inner);
             var buttons = Cut.Column(Cut.Bottom(ref inner,Touch * 3 + G * 2),3,G);
             if (HudTheme.Button(buttons[0],"RESUME",ButtonKind.Primary,true,false,HudTheme.Body)) session.TogglePause();
             if (HudTheme.Button(buttons[1],"RESTART",ButtonKind.Secondary,true,false,HudTheme.Body)) session.Play();
@@ -318,6 +318,25 @@ namespace ContainerDefense
             if (session.SaveDirty) HudTheme.Text(Cut.Top(ref inner,30,4),session.SaveStatus,HudTheme.Label,HudTheme.Bad);
         }
 
+        // Music and SFX volume with mute, saved in the account (AudioPrefs). Slider rows are touch-sized.
+        private void SoundSettings(ref Rect area)
+        {
+            var prefs = session.Account.Audio; bool changed = false;
+            changed |= VolumeRow(Cut.Top(ref area,Touch,G),"MUSIC",ref prefs.MusicVolume);
+            changed |= VolumeRow(Cut.Top(ref area,Touch,G),"SOUND",ref prefs.SfxVolume);
+            if (HudTheme.Button(Cut.Top(ref area,Touch,G),prefs.Muted ? "SOUND OFF" : "SOUND ON",prefs.Muted ? ButtonKind.Danger : ButtonKind.Secondary,true,false,HudTheme.Body)) { prefs.Muted = !prefs.Muted; changed = true; }
+            if (changed) { session.Account.SetAudio(prefs); GameAudio.Apply(prefs); session.PersistAccount(); }
+        }
+        private bool VolumeRow(Rect row,string name,ref float value)
+        {
+            HudTheme.Text(Cut.Left(ref row,150,G),name,HudTheme.Body,HudTheme.Ink,true);
+            var minus = Cut.Left(ref row,Touch,G); var plus = Cut.Right(ref row,Touch,G);
+            bool changed = false;
+            if (HudTheme.Button(minus,"-",ButtonKind.Secondary,value > 0,false,HudTheme.CardTitle)) { value = Mathf.Max(0,Mathf.Round(value * 10 - 1) / 10); changed = true; }
+            if (HudTheme.Button(plus,"+",ButtonKind.Secondary,value < 1,false,HudTheme.CardTitle)) { value = Mathf.Min(1,Mathf.Round(value * 10 + 1) / 10); changed = true; }
+            var bar = Cut.Center(row,row.width,24); HudTheme.Bar(bar,value,HudTheme.Gold,Mathf.RoundToInt(value * 100) + "%");
+            return changed;
+        }
         // ---------- Shared helpers ----------
         private void Overlay() { HudTheme.Fill(new Rect(0,0,width,height),HudTheme.Hex(0x070A14,.72f)); }
         private static bool Hit(Rect r,string name) { HudAudit.Interactive(r,name); return GUI.Button(r,GUIContent.none,GUIStyle.none); }

@@ -135,6 +135,7 @@ namespace ContainerDefense
             Ensure(); HudAudit.Interactive(r,text);
             // Always issue the control so IMGUI ids stay stable when a button toggles enabled.
             bool clicked = GUI.Button(r,GUIContent.none,GUIStyle.none) && enabled;
+            if (clicked) GameAudio.Play("tap");
             if (Event.current.type == EventType.Repaint) {
                 bool over = enabled && r.Contains(Event.current.mousePosition), pressed = over && Input.GetMouseButton(0);
                 Color fill = enabled ? FillFor(kind) : DisabledFill; if (over && !pressed) fill = Color.Lerp(fill,Color.white,.1f);

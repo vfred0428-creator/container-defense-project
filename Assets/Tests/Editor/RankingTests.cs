@@ -71,6 +71,13 @@ public static class RankingTests
             Assert(charm.Length == 3 && charm[0].IsYou && charm[0].Score == 100 && pop[0].PlayerId == "local_b" && pop[0].Score == 99 && a.Rank.Stars == 0);
             Assert(charm[1].PlayerId == "local_a" && charm[2].PlayerId == "local_b");
         });
+        Check("Audio settings default for old saves, persist, and clamp without touching progression",() => {
+            var a = New(new AccountData { Version = 4,TotalXp = 900 }); var p = a.Audio;
+            Assert(p.MusicVolume > 0 && p.SfxVolume > 0 && !p.Muted);
+            a.SetAudio(new AudioPrefs { MusicVolume = 2,SfxVolume = float.NaN,Muted = true });
+            var restored = New(a.Snapshot());
+            Assert(restored.Audio.MusicVolume == 1 && restored.Audio.SfxVolume >= 0 && restored.Audio.SfxVolume <= 1 && restored.Audio.Muted && restored.TotalXp == 900 && restored.Rank.CurrentRank == RankTier.Rookie);
+        });
         return passed + " ranking scenarios passed.";
     }
     private static MatchSimulation FinishedMatch(AccountProgression a,bool ranked)

@@ -5,10 +5,19 @@ namespace ContainerDefense
     public sealed partial class MatchHud
     {
         private CharacterId inspected = CharacterId.Milo;
+        private bool settingsOpen;
         private static readonly string[] passiveNames = { "+8% gold", "+15% door HP", "+10% damage", "12% faster income", "+12% move speed", "8% half-cost chance", "+10% build speed" };
         private void TitleScreen()
         {
             MenuBackground();
+            // Settings replace the title while open, so nothing behind it can be tapped.
+            if (settingsOpen) { var panel = Cut.Center(safe,Mathf.Min(620,safe.width - M * 2),Mathf.Min(560,safe.height - M * 2));
+                HudTheme.Panel(panel); var inner = Cut.Inset(panel,32);
+                HudTheme.Text(Cut.Top(ref inner,64,8),"SETTINGS",HudTheme.Title,HudTheme.Ink,true,TextAnchor.MiddleCenter);
+                SoundSettings(ref inner);
+                if (HudTheme.Button(Cut.Bottom(ref inner,Touch),"DONE",ButtonKind.Primary,true,false,HudTheme.Body)) settingsOpen = false;
+                return;
+            }
             var account = session.Account; var area = Cut.Inset(safe,M);
             // Top row: brand, profile, rank, charisma. Cards are fixed widths; spare width is margin.
             var top = Cut.Top(ref area,120,24);
@@ -33,6 +42,7 @@ namespace ContainerDefense
             // Bottom navigation.
             var nav = Cut.Bottom(ref area,Touch,24);
             if (HudTheme.Button(Cut.Right(ref nav,Mathf.Min(440,nav.width * .3f),24),"PLAY",ButtonKind.Play,true,false,HudTheme.CardTitle)) session.Play();
+            if (HudTheme.Button(Cut.Right(ref nav,Touch,24),"",ButtonKind.Secondary,"icon_gear")) settingsOpen = true;
             var navButtons = Cut.Row(Cut.Left(ref nav,Mathf.Min(nav.width,4 * 260 + 3 * G)),4,G);
             if (HudTheme.Button(navButtons[0],"RANKED",ButtonKind.Secondary,"icon_skull",true,false,HudTheme.Body)) OpenRanked();
             if (HudTheme.Button(navButtons[1],"LEADERBOARD",ButtonKind.Secondary,"icon_up"))  OpenLeaderboards(LeaderboardKind.Ranked);

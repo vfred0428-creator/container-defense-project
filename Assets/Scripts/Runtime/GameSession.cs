@@ -47,6 +47,7 @@ namespace ContainerDefense
             Application.targetFrameRate = 60;
             config = Resources.Load<MatchConfig>("DefaultMatch");
             InitializeAccount();
+            GameAudio.Ensure(gameObject,Account.Audio);
             input = new DesktopPlayerInput();
             Arena = gameObject.AddComponent<ArenaView>();
             Arena.Build(Collections);
@@ -242,6 +243,7 @@ namespace ContainerDefense
         public string CurrentNotice { get { return Time.unscaledTime < noticeUntil ? Notice : ""; } }
         private void OnMatchEvent(MatchEvent e)
         {
+            GameAudio.OnMatchEvent(Match,e);
             Arena.Handle(e);
             if (e.Kind == MatchEventKind.Claimed && e.PlayerId == 0) { View.Refresh(); Notify("House secured. Sleep for income and place your first defense."); }
             if (e.Kind == MatchEventKind.Sleeping && e.PlayerId == 0)
