@@ -92,3 +92,13 @@ Branch claude/continue-astra, local only. Astra left nothing uncommitted after 9
   - **Matches are far too short:** the median is 61 s (about 36 s of combat), against the ~510 s target. With default rules the bots kill the 6,500 HP boss quickly.
   - Balance was not changed; this is vhi's call.
   - Character placements are even (average 3.43 to 3.58). In boss-defeat endings, placement among survivors follows house number, so first places are not a skill signal.
+- **a16a072 / f97ebf4 Own board (vhi: "my area like TFT"):**
+  - After claiming, the camera shows only your house on a bigger yard. The houses, routes and rules did not move; the board is a presentation stage. The claim race and the full map are unchanged.
+  - Weapons go on 8 glowing yard pads (buy, tap a pad, move later). Slot, damage, range and cap are unchanged.
+  - New MY YARD menu editor uses existing prop art and is saved as an added AccountData.Yard field. Old saves get a starter yard; bots get random presets.
+  - Sleeping is indoors (never on the roof): Zzz from the window, sleep pose in the room view.
+  - The boss flies onto your board when it targets you.
+  - Scouting stays on (MatchView.AllowScouting).
+  - The HUD audit flags any neighbour house visible in board view. It is clean at 6 sizes (TestResults/Board/final). No old camera test asserted the old framing, so none were changed.
+- **b36d5b0 Boss-kill placement:** survivors rank by damage dealt to the boss, then house HP left, then earliest claim. Ranked wins, RP and profile wins go to 1st place only.
+- **Boss HP tuning (own commit, easy to revert):** vhi picked 5-minute matches. BossHealth went from 6,500 to 77,500 and nothing else changed. The median full match went from 61 s to 302 s (70 seeds). See TestResults/Playtest/boss-hp-tuning.md; retarget with Tools/Tune-BossHealth.ps1 ($TargetMatchSeconds).

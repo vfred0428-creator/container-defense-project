@@ -1,37 +1,23 @@
-# Claude latest handoff — 2026-10-01 (Astra out of usage; Claude continued alone)
+# Claude latest handoff — 2026-10-01
 
 ## Build checkpoint
-- Branch claude/continue-astra, local only. Source commit: 927f867 (sound + phone readiness; the sweep tool follows). This file and PROJECT_STATUS are committed right after it.
-- Preview player (development build): C:\Users\vfred\OneDrive\Documents\ChatGPT\game\TestResults\UI-Pass\preview-build\ContainerDefense.exe
-  - Runtime.dll SHA256 6FE1EF6D37D889DAEC46E68977FA2F9BCB72D3E16969FE039FBC5021DA142D95
-- Builds\Windows\ContainerDefense.exe is untouched (f71d2ce).
-- Tests: 134 domain checks (Tools/Test-Core.ps1) + 17 Unity persistence = 151 pass. HUD audit 0 at desktop and phone sizes. No known failures.
-- APK: not made. Android Build Support is not installed for 6000.3.0f1; add it in Unity Hub > Installs > 6000.3.0f1 > Add modules.
-- Playtest: Tools/Run-PlaytestSweep.ps1. Matches end in about 61 s vs the 510 s target (balance untouched; see PROJECT_STATUS).
+- Branch claude/continue-astra, local only.
+- Preview player (development build): TestResults\UI-Pass\preview-build\ContainerDefense.exe, rebuilt after the boss HP commit.
+- Builds\Windows\ContainerDefense.exe is untouched.
+- Tests: Tools/Test-Core.ps1 (domain, incl. 7 board, 10 match view, 30 match contract) plus 17 Unity persistence checks all pass. HUD audit 0 at 1920x1080, 1280x720, 1920x886, 1920x864, 1600x720 and 1560x720.
+- APK: not made. Android Build Support is not installed, per vhi's instruction.
 
 ## Since the last handoff
-- **3422133 Hand-built UI:**
-  - HudTheme framed cards and the Button(rect,text,kind,icon,...) system
-  - Lilita One headings, HudTheme.Logo live title
-  - padlock lock state
-  - MenuArtwork.Prepare blur, called from GameSession.Update
-- **3ecad5b Characters:**
-  - the room atlases are now the single source for every character
-  - generated body/portrait overrides removed; locked-style characters rejected per vhi
-  - world kept; locked icons wired
-- **cc85835 World cleanup:** one house drawing in six paints, cleaned props, contact shadows. The existing north strip stays. Originals are in Art/Source/World-Originals.
-- **45de420 ArenaFeedback.cs** (a partial of ArenaView), visual only:
-  - per-weapon projectiles
-  - impact stars, damage numbers, target ring
-  - house pop, coins flying to HudLayout.GoldTarget
+- **a16a072 Board rules:** YardLayout (12x7 grid, 8 pads), WeaponPlacement.Spot, PlayerCommands.Place(slot,kind,spot)/MoveToSpot, AccountData.Yard, and asleep = indoors (Position = Entry).
+- **f97ebf4 Board view:**
+  - BoardView.cs (ArenaView partial) is a stage at (1000,0,0) showing the viewed house.
+  - YardEditorHud.cs is the MY YARD screen.
+  - The pad placing flow is in HouseBoardHud.
+  - MatchView.AllowScouting is the scouting flag.
+- **b36d5b0 Placement:** boss-kill survivors rank by damage, then HP, then claim time (PlayerState.ClaimedAt). Rank and wins use placement 1.
+- **Boss HP:** 77,500 for a ~5 min median (TestResults/Playtest/boss-hp-tuning.md, Tools/Tune-BossHealth.ps1).
+- No old camera tests asserted the old framing, so none changed.
 
-## Screens
-- **UI:** TestResults/UI-Pass/handbuilt/{before,after}, compare-*.jpg
-- **Characters:** TestResults/Art-Locked/rooms-match/<size>/, rooms-compare-*.jpg
-- **World decision:** TestResults/Art-Locked/world-compare-*.jpg
-- **Feedback:** TestResults/Art-Locked/feedback-final/feedback-strip.png
-
-## For Astra when back
-- Nothing of yours was overwritten. README.md is untouched; PROJECT_STATUS has an appended dated section only.
-- Unused art kept for later: Art/Source/Generated/v4-locked (and sliced/), plus v2 and v3 originals.
-- Higgsfield has about 50 credits left. Requests can go in Tools/Codex-Requests-For-Claude.md.
+## Open
+- CC0 music loop: candidate found, waiting for vhi's OK to download.
+- Real touch-device QA.
