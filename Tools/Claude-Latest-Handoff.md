@@ -1,11 +1,13 @@
 # Claude latest handoff — 2026-10-01 (Astra out of usage; Claude continued alone)
 
 ## Build checkpoint
-- Branch claude/continue-astra, local only. Source commit: cc85835 (world cleanup). This file and PROJECT_STATUS are committed right after it.
+- Branch claude/continue-astra, local only. Source commit: 927f867 (sound + phone readiness; the sweep tool follows). This file and PROJECT_STATUS are committed right after it.
 - Preview player (development build): C:\Users\vfred\OneDrive\Documents\ChatGPT\game\TestResults\UI-Pass\preview-build\ContainerDefense.exe
   - Runtime.dll SHA256 6FE1EF6D37D889DAEC46E68977FA2F9BCB72D3E16969FE039FBC5021DA142D95
 - Builds\Windows\ContainerDefense.exe is untouched (f71d2ce).
-- Tests: 133 domain checks (Tools/Test-Core.ps1) + 17 Unity persistence = 150 pass. HUD audit 0 at all three sizes. No known failures.
+- Tests: 134 domain checks (Tools/Test-Core.ps1) + 17 Unity persistence = 151 pass. HUD audit 0 at desktop and phone sizes. No known failures.
+- APK: not made. Android Build Support is not installed for 6000.3.0f1; add it in Unity Hub > Installs > 6000.3.0f1 > Add modules.
+- Playtest: Tools/Run-PlaytestSweep.ps1. Matches end in about 61 s vs the 510 s target (balance untouched; see PROJECT_STATUS).
 
 ## Since the last handoff
 - **3422133 Hand-built UI:**

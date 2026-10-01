@@ -76,3 +76,19 @@ Branch claude/continue-astra, local only. Astra left nothing uncommitted after 9
   - A north-edge dressing strip and any remaining world art in the room style.
   - No audio exists, so there are no button sounds.
   - Real touch-device QA.
+- **ebfb4b6 Sound:**
+  - 16 clips from Kenney's CC0 packs (Assets/Audio/LICENSE.txt).
+  - GameAudio: per-weapon shots with cooldowns, warnings, jingles.
+  - Music/sound volume and mute in the pause screen and the title settings, saved as an added AccountData.Audio field; old saves get defaults.
+  - No music loop: no CC0 pack used contains one.
+- **927f867 Phone readiness:**
+  - The mobile UI scale keeps 96 px targets at 48 dp or more.
+  - Landscape-only rotation.
+  - HUD audit clean at 1920x864, 1600x720, 1560x720 and 1280x720 (TestResults/Phone).
+  - Every action has an on-screen control (gear for pause, arrows for spectating, tap to walk and claim).
+  - Android Build Support is NOT installed for 6000.3.0f1, so there is no APK yet. Install it from Unity Hub (Installs > 6000.3.0f1 > Add modules > Android Build Support with SDK/NDK and OpenJDK).
+- **Playtest sweep** (Tools/Run-PlaytestSweep.ps1; 70 seeds, all 7 characters, all 5 route kinds):
+  - 0 crashes and 0 stuck matches.
+  - **Matches are far too short:** the median is 61 s (about 36 s of combat), against the ~510 s target. With default rules the bots kill the 6,500 HP boss quickly.
+  - Balance was not changed; this is vhi's call.
+  - Character placements are even (average 3.43 to 3.58). In boss-defeat endings, placement among survivors follows house number, so first places are not a skill signal.
