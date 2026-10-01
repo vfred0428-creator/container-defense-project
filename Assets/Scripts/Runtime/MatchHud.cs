@@ -93,11 +93,13 @@ namespace ContainerDefense
             var cells = Cut.Row(Cut.Inset(l.Strip,12),6,12); var order = HouseOrder();
             for (int i = 0; i < 6; i++) {
                 var p = order[i]; var cell = cells[i]; var face = new Rect(cell.x,cell.y,96,96);
-                HudTheme.Card(face);
+                HudTheme.Fill(face,p.Id == 0 ? HudTheme.Hex(0x2C5E46) : HudTheme.Hex(0x2B3558),48);
                 var old = GUI.color; if (p.Eliminated) GUI.color = new Color(.45f,.45f,.5f,1);
                 Portrait(Cut.Inset(face,4),p.Id == 0 ? session.Inventory.Equipped(p.Character.Id) : session.Collections.DefaultSkin(p.Character.Id),true);
                 GUI.color = old;
-                if (session.ViewedPlayer == p.Id) HudTheme.Ring(face);
+                // Round frame as in the mocks; the gold ring marks whose base you are looking at.
+                HudIcons.Draw(face,"round_frame");
+                if (session.ViewedPlayer == p.Id && session.View.Mode == ViewMode.Base) HudIcons.Draw(new Rect(face.x - 4,face.y - 4,104,104),"round_ring");
                 var badge = new Rect(face.xMax - 58,face.yMax - 30,58,28);
                 HudTheme.Fill(badge,p.Eliminated ? HudTheme.DangerFill : p.Id == 0 ? HudTheme.PrimaryFill : HudTheme.SecondaryFill,10);
                 HudTheme.OutlinedText(badge,p.Eliminated ? "OUT" : p.HouseId >= 0 ? (p.HouseId + 1).ToString("00") : "--",HudTheme.Label,Color.white,TextAnchor.MiddleCenter);

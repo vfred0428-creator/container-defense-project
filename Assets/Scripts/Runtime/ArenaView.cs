@@ -12,7 +12,7 @@ namespace ContainerDefense
         // Projected world scale: a high-angle look with wide containers, as in the top-down mocks.
         private const float ScaleX = .95f, ScaleZ = .7f, RoadWidth = 1.6f, HouseWidth = 8.4f, AtlasHouseSize = 4.6f, WeaponSize = 1.5f;
         // Normalised positions (from the top-left) on the generated container art.
-        private static readonly Vector2 HousePivot = new Vector2(.46f,.1f), NumberPanel = new Vector2(.19f,.42f);
+        private static readonly Vector2 HousePivot = new Vector2(.46f,.1f), NumberPanel = new Vector2(.25f,.435f);
         private static readonly Vector2[] RoofPads = { new Vector2(.248f,.188f),new Vector2(.485f,.222f),new Vector2(.734f,.278f) };
         private static readonly string[] HouseColours = { "blue","pink","yellow","purple","teal","red" };
         private static readonly string[] WeaponNames = { "gatling","cannon","slow","rocket" };
@@ -44,6 +44,12 @@ namespace ContainerDefense
         private Material lines;
         private Rect mapBounds;
         private Texture2D grade;
+        // Feedback pools: door-hit sparks, coin pops and the boss hit flash; screen shake on your own house.
+        private readonly SpriteRenderer[] sparks = new SpriteRenderer[18], coins = new SpriteRenderer[8];
+        private readonly float[] sparkStart = new float[18], coinStart = new float[8];
+        private readonly Vector3[] sparkFrom = new Vector3[18], sparkVelocity = new Vector3[18], coinFrom = new Vector3[8];
+        private int nextSpark, nextCoin;
+        private float shakeUntil, bossFlashUntil, nextCoinAt;
         public void Build(CollectionCatalog collections)
         {
             session = GetComponent<GameSession>();
@@ -77,6 +83,9 @@ namespace ContainerDefense
             bossShadow = Tinted("Boss shadow",soft,new Color(0,0,0,.35f),-80);
             for (int i = 0; i < minions.Length; i++) minions[i] = SpriteObject("Smoke minion " + i,minionSprite,899);
             for (int i = 0; i < 6; i++) actorShadows[i] = Tinted("Resident shadow " + i,soft,new Color(0,0,0,.38f),0);
+            var coinTexture = HudIcons.Get("icon_coin"); var coinSprite = Sprite.Create(coinTexture,new Rect(0,0,coinTexture.width,coinTexture.height),new Vector2(.5f,.5f),coinTexture.width); owned.Add(coinSprite);
+            for (int i = 0; i < sparks.Length; i++) { sparks[i] = Tinted("Hit spark " + i,soft,HudTheme.Hex(0xFFB347),970); sparks[i].enabled = false; sparkStart[i] = -10; }
+            for (int i = 0; i < coins.Length; i++) { coins[i] = SpriteObject("Coin pop " + i,coinSprite,970); coins[i].enabled = false; coinStart[i] = -10; }
             lines = new Material(Shader.Find("Sprites/Default")); route = MakeLine("Telegraphed road route",.16f,HudTheme.Hex(0xE86A4A,.8f),-3);
             for (int h = 0; h < 12; h++) {
                 smoke[h] = Tinted("Damage smoke " + h,soft,new Color(.15f,.13f,.16f,.7f),0); smoke[h].enabled = false;
@@ -249,7 +258,12 @@ namespace ContainerDefense
         public void Handle(MatchEvent e)
         {
             if (e.Kind == MatchEventKind.Shot && e.HouseId >= 0) fireUntil[e.HouseId,Mathf.Clamp((int)e.Amount,0,2)] = Time.time + .13f;
-            if (e.Kind == MatchEventKind.DoorHit && e.HouseId >= 0) hitUntil[e.HouseId] = Time.time + .22f;
+            if (e.Kind == MatchEventKind.DoorHit && e.HouseId >= 0) {
+                hitUntil[e.HouseId] = Time.time + .22f; SparkBurst(HousePoint(e.HouseId,new Vector2(HousePivot.x,.72f)));
+                if (match != null && match.Houses[e.HouseId].OwnerId == 0 && session.View.ViewingOwnBase) shakeUntil = Time.time + .28f;
+            }
+            if (e.Kind == MatchEventKind.Shot) bossFlashUntil = Time.time + .06f;
+            if (e.Kind == MatchEventKind.Sold && e.PlayerId == 0 && match != null && match.Players[0].HouseId >= 0) CoinPop(HousePoint(match.Players[0].HouseId,new Vector2(.5f,.2f)));
             if ((e.Kind == MatchEventKind.Upgraded || e.Kind == MatchEventKind.Placed) && e.PlayerId >= 0) cheerUntil[e.PlayerId] = Time.time + .55f;
         }
         // Fits a world rect into the part of the screen the HUD leaves free (fractions of the screen).
@@ -341,6 +355,33 @@ namespace ContainerDefense
                 route.positionCount = match.Boss.RoutePath.Length + 1; route.SetPosition(0,bossPoint);
                 for (int i = 0; i < match.Boss.RoutePath.Length; i++) route.SetPosition(i + 1,Project(match.Boss.RoutePath[i]));
             }
+            Feedback(playing,t);
+        }
+        private void SparkBurst(Vector3 at)
+        {
+            for (int k = 0; k < 6; k++) {
+                int i = nextSpark++ % sparks.Length; sparkStart[i] = Time.time; sparkFrom[i] = at;
+                float a = Random.Range(0f,Mathf.PI * 2); sparkVelocity[i] = new Vector3(Mathf.Cos(a),Mathf.Abs(Mathf.Sin(a)) + .3f,0) * Random.Range(2.5f,4.5f);
+            }
+        }
+        private void CoinPop(Vector3 at) { int i = nextCoin++ % coins.Length; coinStart[i] = Time.time; coinFrom[i] = at + new Vector3(Random.Range(-.8f,.8f),0,0); }
+        // Sparks fly and fade, coins rise and fade, the boss flashes when hit, the camera shakes when your door is hit.
+        private void Feedback(bool playing,float t)
+        {
+            for (int i = 0; i < sparks.Length; i++) {
+                float age = Time.time - sparkStart[i]; sparks[i].enabled = playing && age < .35f; if (!sparks[i].enabled) continue;
+                sparks[i].transform.position = sparkFrom[i] + sparkVelocity[i] * age + Vector3.down * 6 * age * age;
+                sparks[i].transform.localScale = Vector3.one * (.55f * (1 - age / .35f) + .1f); sparks[i].color = new Color(1,.75f,.35f,1 - age / .35f);
+            }
+            var me = match.Players[0];
+            if (playing && me.Sleeping && me.HouseId >= 0 && !match.Finished && Time.time >= nextCoinAt && session.View.ViewingOwnBase) { CoinPop(HousePoint(me.HouseId,new Vector2(.55f,.15f))); nextCoinAt = Time.time + 1.1f; }
+            for (int i = 0; i < coins.Length; i++) {
+                float age = Time.time - coinStart[i]; coins[i].enabled = playing && age < 1f; if (!coins[i].enabled) continue;
+                coins[i].transform.position = coinFrom[i] + Vector3.up * (age * 1.6f); coins[i].transform.localScale = Vector3.one * (.7f + Mathf.Sin(age * 12) * .05f);
+                coins[i].color = new Color(1,1,1,1 - age * age);
+            }
+            boss.color = Time.time < bossFlashUntil ? new Color(1,.75f,.7f) : Color.white;
+            if (Time.time < shakeUntil) { float k = (shakeUntil - Time.time) / .28f; Camera.transform.position += new Vector3(Random.Range(-1f,1f),Random.Range(-1f,1f),0) * .18f * k; }
         }
         // Golden-hour grade over the world: warm sky light from the top, deep dusk at the bottom and edges.
         private void DrawGrade()

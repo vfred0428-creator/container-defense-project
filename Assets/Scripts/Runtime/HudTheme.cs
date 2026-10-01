@@ -226,6 +226,12 @@ namespace ContainerDefense
                         float d = Mathf.Pow(hx * hx + hy * hy - .5f,3) - hx * hx * hy * hy * hy;
                         if (d < .02f) c = outline; if (d < 0) c = HudTheme.Hex(0xFF5A64); break;
                     }
+                    case "round_frame": {
+                        // Navy corners with a round window and a slate rim: laid over a square portrait it reads as a round frame.
+                        float d = r * 64; c = HudTheme.PanelFill; c.a = 1;
+                        if (d < 61) c = HudTheme.PanelBorder; if (d < 57) c = Color.clear; break;
+                    }
+                    case "round_ring": { float d = r * 64; c = d > 56 && d < 63 ? HudTheme.Gold : Color.clear; break; }
                     case "boss_entry_marker": {
                         // Rounded coral badge with a cream chevron pointing down (rotate per edge).
                         if (r < .92f) c = outline; if (r < .82f) c = HudTheme.Hex(0xE86A4A);
