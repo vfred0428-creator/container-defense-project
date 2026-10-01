@@ -12,8 +12,8 @@ namespace ContainerDefense
         // Projected world scale: a high-angle look with wide containers, as in the top-down mocks.
         private const float ScaleX = .95f, ScaleZ = .7f, RoadWidth = 1.6f, HouseWidth = 8.4f, AtlasHouseSize = 4.6f, WeaponSize = 1.5f;
         // Normalised positions (from the top-left) on the generated container art.
-        private static readonly Vector2 HousePivot = new Vector2(.46f,.1f), NumberPanel = new Vector2(.25f,.435f);
-        private static readonly Vector2[] RoofPads = { new Vector2(.248f,.188f),new Vector2(.485f,.222f),new Vector2(.734f,.278f) };
+        private static readonly Vector2 HousePivot = new Vector2(.47f,.11f), NumberPanel = new Vector2(.148f,.42f);
+        private static readonly Vector2[] RoofPads = { new Vector2(.26f,.19f),new Vector2(.5f,.235f),new Vector2(.76f,.28f) };
         private static readonly string[] HouseColours = { "blue","pink","yellow","purple","teal","red" };
         private static readonly string[] WeaponNames = { "gatling","cannon","slow","rocket" };
         private static readonly string[] PropNames = { "prop_crate","prop_barrel","prop_plant","prop_cone","prop_pallets" };
@@ -127,7 +127,11 @@ namespace ContainerDefense
         {
             Sprite sprite; if (!props.TryGetValue(id,out sprite)) return;
             var r = SpriteObject(id,sprite,Depth(position.y)); r.transform.position = position; r.transform.localScale = Vector3.one * size; scenery.Add(r.gameObject);
+            ContactShadow(position,size * .9f,Depth(position.y) - 1);
         }
+        // Small soft ellipse under an object so every prop sits on the ground the same way.
+        private void ContactShadow(Vector3 foot,float width,int order)
+        { var s = Tinted("Contact shadow",soft,new Color(0,0,0,.42f),order); s.transform.position = foot + new Vector3(0,.03f,0); s.transform.localScale = new Vector3(width,width * .32f,1); scenery.Add(s.gameObject); }
         private SpriteRenderer Tinted(string name,Sprite sprite,Color color,int order)
         { var r = SpriteObject(name,sprite,order); r.color = color; return r; }
         private SpriteRenderer SpriteObject(string name,Sprite sprite,int order)
@@ -180,6 +184,7 @@ namespace ContainerDefense
                 glow.transform.position = corner + new Vector3(0,.4f,0); glow.transform.localScale = new Vector3(4.2f,2.8f,1);
                 var lamp = SpriteObject("Street lamp",lampSprite,Depth(corner.y)); scenery.Add(lamp.gameObject);
                 lamp.transform.position = corner; lamp.transform.localScale = Vector3.one * 1.25f;
+                ContactShadow(corner,.7f,Depth(corner.y) - 1);
             }
             // Props along the yard's east and west margins and in the corners.
             string[] sideProps = { "prop_crate","prop_barrel","prop_plant","prop_pallets","prop_cone" };
