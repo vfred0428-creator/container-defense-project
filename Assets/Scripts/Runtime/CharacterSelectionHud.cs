@@ -5,6 +5,8 @@ namespace ContainerDefense
     public sealed partial class MatchHud
     {
         private CharacterId inspected = CharacterId.Milo;
+        // Roster card motion: current lift, and when each card last popped (selected) or shook (locked).
+        private readonly float[] cardLift = new float[7], cardPopAt = { -9,-9,-9,-9,-9,-9,-9 }, cardShakeAt = { -9,-9,-9,-9,-9,-9,-9 };
         private bool settingsOpen;
         private static readonly string[] passiveNames = { "+8% gold", "+15% door HP", "+10% damage", "12% faster income", "+12% move speed", "8% half-cost chance", "+10% build speed" };
         private void TitleScreen()
@@ -61,21 +63,38 @@ namespace ContainerDefense
             float cardWidth = Mathf.Min(260,Mathf.Min((area.width - 6 * G) / 7,area.height - 150)), cardHeight = Mathf.Min(area.height,cardWidth + 150);
             var row = Cut.Center(area,cardWidth * 7 + 6 * G,cardHeight);
             var cards = Cut.Row(row,7,G);
+            var e = Event.current; bool repaint = e.type == EventType.Repaint;
             for (int i = 0; i < 7; i++) {
-                var d = session.Characters.Get((CharacterId)i); var card = cards[i];
+                var d = session.Characters.Get((CharacterId)i); var slot = cards[i];
                 bool unlocked = account.IsUnlocked(d.Id), selected = account.Selected == d.Id;
+                // Smooth feel: the selected card rises, a hovered one lifts a little, a locked tap shakes.
+                float target = selected ? 18 : slot.Contains(e.mousePosition) && unlocked ? 8 : 0;
+                if (repaint) cardLift[i] = Mathf.MoveTowards(cardLift[i],target,Time.unscaledDeltaTime * 140);
+                float since = Time.unscaledTime - cardShakeAt[i];
+                float shake = since < .35f ? Mathf.Sin(since * 60) * 8 * (1 - since / .35f) : 0;
+                var card = new Rect(slot.x + shake,slot.y - cardLift[i],slot.width,slot.height);
+                if (cardLift[i] > 1) HudTheme.Fill(new Rect(slot.x + 10,slot.yMax - 6,slot.width - 20,12),HudTheme.Hex(0x000000,.25f * cardLift[i] / 18),6);
                 HudTheme.Panel(card,false); if (selected) HudTheme.Ring(card);
                 var inner = Cut.Inset(card,12);
                 var art = Cut.Top(ref inner,inner.width,8);
                 HudTheme.Fill(art,HudTheme.Hex(0x141A2C),10);
                 var old = GUI.color; if (!unlocked) GUI.color = new Color(.32f,.34f,.42f,1);
-                Portrait(art,session.Collections.DefaultSkin(d.Id),false); GUI.color = old;
+                // Pop on select, then a gentle idle bob for the chosen character; clipped to the art frame.
+                float popT = Time.unscaledTime - cardPopAt[i], pop = popT < .3f ? 1 + Mathf.Sin(popT / .3f * Mathf.PI) * .08f : 1;
+                float bob = selected ? Mathf.Sin(Time.unscaledTime * 2.2f) * 3 : 0;
+                GUI.BeginGroup(art);
+                Portrait(new Rect(art.width * (1 - pop) / 2,art.height * (1 - pop) / 2 + bob,art.width * pop,art.height * pop),session.Collections.DefaultSkin(d.Id),false);
+                GUI.EndGroup(); GUI.color = old;
                 // Locked: greyed art, padlock badge and the level it unlocks at.
                 if (!unlocked) { var lockRect = Cut.Center(art,Mathf.Min(88,art.width * .45f),Mathf.Min(88,art.width * .45f)); HudTheme.Fill(lockRect,HudTheme.Hex(0x111627,.85f),lockRect.width / 2); HudIcons.Draw(Cut.Inset(lockRect,12),"icon_lock"); }
                 HudTheme.Text(Cut.Top(ref inner,42),d.Name,HudTheme.CardTitle,selected ? HudTheme.Gold : HudTheme.Ink,true);
                 HudTheme.Text(Cut.Top(ref inner,30),passiveNames[i],HudTheme.Label,HudTheme.Ink);
                 HudTheme.Text(inner,!unlocked ? "Unlocks at Lv " + d.UnlockLevel : selected ? "Selected" : "Tap to select",HudTheme.Label,!unlocked ? HudTheme.Bad : selected ? HudTheme.Gold : HudTheme.Muted,true);
-                if (Hit(card,"Character " + d.Name)) { inspected = d.Id; if (unlocked) session.SelectCharacter(d.Id); }
+                if (Hit(slot,"Character " + d.Name)) {
+                    inspected = d.Id;
+                    if (!unlocked) { cardShakeAt[i] = Time.unscaledTime; GameAudio.Play("tap",.6f); }
+                    else if (!selected && session.SelectCharacter(d.Id)) { cardPopAt[i] = Time.unscaledTime; GameAudio.Play("claim",.7f); }
+                }
             }
         }
     }
