@@ -70,7 +70,8 @@ Branch claude/continue-astra, local only. Astra left nothing uncommitted after 9
   - Details: Art/Source/Generated/v4-locked/VETTING.md.
 - **45de420 Hand-made combat feedback, visual only:** per-weapon projectiles, impact stars, damage numbers, boss target ring, house pop, coins flying to the gold counter.
 - **Checks:** 133 domain + 17 Unity persistence = 150 pass. The HUD audit is clean at 1920x1080, 1280x720 and 1920x886 with a simulated notch.
-- **Builds:** the preview build is TestResults/UI-Pass/preview-build/ContainerDefense.exe. Builds/Windows has not been rebuilt.
+- **cc85835 World cleanup:** all six house colours are now one drawing (hand recolours of the blue house). Props are cleaned, and every prop and lamp has a contact shadow. Originals are in Art/Source/World-Originals. The existing north strip already matches this style, so it stays.
+- **Builds:** the preview build is TestResults/UI-Pass/preview-build/ContainerDefense.exe, built from cc85835. Builds/Windows has not been rebuilt.
 - **Open:**
   - A north-edge dressing strip and any remaining world art in the room style.
   - No audio exists, so there are no button sounds.
