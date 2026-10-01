@@ -19,8 +19,11 @@ if (-not (Test-Path -LiteralPath $taskAssembly)) { throw 'Expected a Mono develo
 $taskBytes = [IO.File]::ReadAllBytes($taskAssembly)
 $taskMetadata = [Text.Encoding]::UTF8.GetString($taskBytes)
 $taskStrings = [Text.Encoding]::Unicode.GetString($taskBytes)
+# The CLR user-string heap can start at either byte alignment in a PE file.
+$taskOddStrings = [Text.Encoding]::Unicode.GetString($taskBytes,1,$taskBytes.Length - 1)
 if (-not $taskMetadata.Contains('MatchSmokeDriver') -or -not $taskMetadata.Contains('SocialSmokeDriver') -or
-    -not $taskMetadata.Contains('CollectionSmokeDriver') -or -not $taskStrings.Contains('--smoke-output')) {
+    -not $taskMetadata.Contains('CollectionSmokeDriver') -or
+    -not ($taskStrings.Contains('--smoke-output') -or $taskOddStrings.Contains('--smoke-output'))) {
     throw 'This player does not expose the isolated development smoke drivers. Refusing to launch against a real account.'
 }
 $taskRunName = 'Assist-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,6)

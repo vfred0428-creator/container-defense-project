@@ -21,6 +21,7 @@ namespace ContainerDefense
             bool own = session.View.CanCommand && !session.Paused;
             var left = Cut.Left(ref inner,432,24);
             HouseSummary(left,h,viewed,own);
+            if (RoomOpen && own) { StationCards(inner,h.HouseId); return; }
             if (!own) { placingKind = -1; movingSlot = -1; }
             if (own && (placingKind >= 0 || movingSlot >= 0)) PadPrompt(inner,h);
             else if (own && picking && selectedSlot >= 0) WeaponPicker(inner,h); else Sockets(inner,h,own);
@@ -49,7 +50,7 @@ namespace ContainerDefense
             var hp = Cut.Top(ref r,28,12);
             HudIcons.Draw(Cut.Left(ref hp,32,8),"icon_heart");
             HudTheme.Bar(hp,h.MaxHealth > 0 ? h.Health / h.MaxHealth : 0,own || viewed.Id == 0 ? HudTheme.Good : HudTheme.Info,HudTheme.Number(Mathf.Ceil(h.Health)) + " / " + HudTheme.Number(h.MaxHealth));
-            var buttons = Cut.Row(Cut.Top(ref r,Touch),4,G);
+            var buttons = Cut.Row(Cut.Top(ref r,Touch),RoomOpen && own ? 2 : 4,G);
             if (!own) {
                 string[] facts = { "BED\nLv " + (h.BedLevel + 1),"DOOR\nLv " + (h.DoorLevel + 1),"GOLD\n" + (h.Wealth == WealthBand.Unknown ? "-" : h.Wealth.ToString()),"" };
                 for (int i = 0; i < 3; i++) { HudTheme.Card(buttons[i]); HudTheme.Text(Cut.Inset(buttons[i],6),facts[i],HudTheme.Label,HudTheme.Muted,true,TextAnchor.MiddleCenter,true); }
@@ -58,10 +59,34 @@ namespace ContainerDefense
             }
             var live = m.Houses[h.HouseId];
             if (HudTheme.Button(buttons[0],viewed.Sleeping ? "WAKE" : "SLEEP",ButtonKind.Secondary)) session.Interact();
-            HouseUpgrade(buttons[1],live,UpgradeKind.Bed,"BED");
-            HouseUpgrade(buttons[2],live,UpgradeKind.Door,"DOOR");
+            if (!RoomOpen) {
+                HouseUpgrade(buttons[1],live,UpgradeKind.Bed,"BED");
+                HouseUpgrade(buttons[2],live,UpgradeKind.Door,"DOOR");
+            }
             bool canRepair = live.Health < live.MaxHealth && !live.IsBuilding && m.Players[0].Gold >= MatchSimulation.RepairCost;
-            if (HudTheme.Button(buttons[3],MatchSimulation.RepairCost.ToString(),ButtonKind.Primary,"icon_repair",canRepair) && !session.Repair()) session.Notify("Repair needs 40 gold and a damaged door.");
+            if (HudTheme.Button(buttons[buttons.Length - 1],MatchSimulation.RepairCost.ToString(),ButtonKind.Primary,"icon_repair",canRepair) && !session.Repair()) session.Notify("Repair needs 40 gold and a damaged door.");
+        }
+        private void StationCards(Rect area,int house)
+        {
+            var cards = Cut.Row(area,3,G); var m = session.Match;
+            for (int i = 0; i < cards.Length; i++) {
+                var station = (Station)i; var card = cards[i]; HudTheme.Card(card);
+                var inner = Cut.Inset(card,14); var action = Cut.Bottom(ref inner,Touch,8);
+                var state = HouseStations.State(m,0,station,session.Queue);
+                string title = station == Station.Weapons ? "WEAPONS" : station.ToString().ToUpperInvariant() + "  Lv " + HouseStations.Level(m,house,station);
+                HudTheme.Text(Cut.Top(ref inner,38),title,HudTheme.Body,HudTheme.Ink,true);
+                HudTheme.Text(Cut.Top(ref inner,32),state == CardState.Queued ? "Waiting for gold / builder" : HouseStations.Effect(m,house,station),HudTheme.Label,state == CardState.Queued ? HudTheme.Gold : HudTheme.Muted);
+                if (state == CardState.Building) {
+                    var h = m.Houses[house];
+                    HudTheme.Bar(Cut.Center(action,action.width,36),1 - h.BuildRemaining / Mathf.Max(.01f,h.BuildDuration),HudTheme.Good,"BUILDING  " + h.BuildRemaining.ToString("0.0") + "s");
+                    continue;
+                }
+                int cost = HouseStations.Cost(m,house,station);
+                string label = station == Station.Weapons ? "OPEN YARD" : state == CardState.Max ? "MAX LEVEL" : state == CardState.Queued ? "CANCEL QUEUE" : (state == CardState.Waiting || state == CardState.TooExpensive ? "QUEUE  " : "UPGRADE  ") + HudTheme.Number(cost);
+                if (!HudTheme.Button(action,label,state == CardState.Queued ? ButtonKind.Secondary : ButtonKind.Primary,state != CardState.Max,false,HudTheme.Label)) continue;
+                if (station == Station.Weapons) { session.Interior.Exit(); ShowBuildBoard(true); }
+                else if (session.BuyStation(station)) FlyCoins(action.center);
+            }
         }
         private void HouseUpgrade(Rect r,HouseState house,UpgradeKind kind,string name)
         {

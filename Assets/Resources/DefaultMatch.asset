@@ -17,7 +17,7 @@ MonoBehaviour:
     MoveSpeed: 5
     ClaimRadius: 1.65
     StartingGold: 65
-    BossHealth: 6500
+    BossHealth: 77500
     BossDamage: 32
     BossAttackInterval: 1.7
     BossMoveSpeed: 3.2

@@ -21,3 +21,6 @@
 ## Open
 - Music: 5b1a497 adds a CC0 loop (MintoDog), 40% of the Music slider, ducked for warnings and jingles.
 - Real touch-device QA.
+
+## Codex continuation — 2026-10-01
+After Claude usage stopped, Codex resumed the unfinished room runtime edits following 32c3972. See PROJECT_STATUS.md for the current concise handoff, final build and test evidence. Room station controls, queue safety, scaled transforms and modal input blocking are now integrated. The shipped DefaultMatch.asset was still at 6,500 boss HP; it now matches the committed 77,500 tuning, with a build guard. Launch/loading and further character-selection polish remain next.

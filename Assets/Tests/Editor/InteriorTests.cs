@@ -76,6 +76,19 @@ public static class InteriorTests
             for (int i = 0; i < 120 && !bought; i++) { m.Tick(Step); bought = q.Tick(m,0); }
             True(bought && m.Houses[4].IsBuilding && m.Houses[4].BuildingKind == UpgradeKind.Bed && m.Houses[4].DoorLevel == 1 && q.Queued == null);
         });
+        Check("Cancelling a queue never buys an upgrade that just became available", () => {
+            var m = New(10000,1.5f); Claim(m,0,4); var q = new UpgradeQueue();
+            True(q.Request(m,0,Station.Door)); False(q.Request(m,0,Station.Bed));
+            for (int i = 0; i < 60; i++) m.Tick(Step);
+            double gold = m.Players[0].Gold;
+            False(q.Request(m,0,Station.Bed)); True(q.Queued == null);
+            True(m.Players[0].Gold == gold && !m.Houses[4].IsBuilding && m.Houses[4].BedLevel == 0);
+        });
+        Check("Eliminated residents cannot leave a purchase queued", () => {
+            var m = New(10000,1.5f); Claim(m,0,4); Claim(m,1,9); Claim(m,2,1); var q = new UpgradeQueue();
+            True(q.Request(m,0,Station.Door)); False(q.Request(m,0,Station.Bed));
+            True(m.CommandsFor(0).Forfeit()); False(q.Request(m,0,Station.Door)); True(q.Queued == null);
+        });
         Check("The purchase guard ignores taps within 0.3 s of an accepted one", () => {
             var g = new PurchaseGuard();
             True(g.TryPass(10f)); False(g.TryPass(10.05f)); False(g.TryPass(10.29f)); True(g.TryPass(10.31f)); False(g.TryPass(10.4f));

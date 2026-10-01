@@ -66,6 +66,8 @@ namespace ContainerDefense.Editor
             Debug.Log(result);
             var config = AssetDatabase.LoadAssetAtPath<MatchConfig>("Assets/Resources/DefaultMatch.asset");
             config.Rules.Validate();
+            if (config.Rules.BossHealth != new MatchRules().BossHealth)
+                throw new System.Exception("DefaultMatch boss health differs from the tested balance. Update the asset and MatchRules together.");
             AssetDatabase.LoadAssetAtPath<CharacterConfig>("Assets/Resources/Characters.asset").Validate();
             AssetDatabase.LoadAssetAtPath<CollectionConfig>("Assets/Resources/Collections.asset").Catalog();
             var fixedMap = AssetDatabase.LoadAssetAtPath<MapConfig>("Assets/Resources/FixedMap.asset").Definition; fixedMap.Validate();

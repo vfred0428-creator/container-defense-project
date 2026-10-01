@@ -23,6 +23,12 @@ namespace ContainerDefense
         private Vector3 boardBossPoint;
         private bool boardBossVisible;
         public int BoardHouse { get { return boardHouseId; } }
+        // Screen rect (GUI pixels) of the house on the board, so tapping it takes you inside.
+        public Rect BoardHouseScreenRect()
+        {
+            var a = ScreenPoint(new Vector3(boardHouseRect.x,boardHouseRect.yMax,0)); var b = ScreenPoint(new Vector3(boardHouseRect.xMax,boardHouseRect.y,0));
+            return Rect.MinMaxRect(Mathf.Min(a.x,b.x),Mathf.Min(a.y,b.y),Mathf.Max(a.x,b.x),Mathf.Max(a.y,b.y));
+        }
         // World centre of a yard cell (x right, y down from the top-left of the board).
         public static Vector3 CellCenter(int x,int y) { return new Vector3(BoardLeft + (x + .5f) * Cell,BoardTop - (y + .5f) * Cell,0); }
         private static Vector3 PadPoint(int pad) { return CellCenter(YardLayout.PadX(pad),YardLayout.PadY(pad)); }

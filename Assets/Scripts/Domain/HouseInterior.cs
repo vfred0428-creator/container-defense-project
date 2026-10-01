@@ -105,11 +105,12 @@ namespace ContainerDefense.Domain
         public bool Request(MatchSimulation m,int player,Station s)
         {
             if (s == Station.Weapons) return false;
-            var p = m.Players[player]; if (p.HouseId < 0) return false;
+            var p = m.Players[player]; if (p.HouseId < 0 || p.Eliminated || m.Finished) { Clear(); return false; }
+            // Cancellation must win even if the queued purchase has just become affordable.
+            if (has && queued == s) { has = false; return false; }
             var kind = s == Station.Bed ? UpgradeKind.Bed : UpgradeKind.Door;
             if (m.CommandsFor(player).UpgradeHouse(kind)) { if (has && queued == s) has = false; return true; }
             if (m.UpgradeCost(p.HouseId,kind) < 0) return false;
-            if (has && queued == s) { has = false; return false; }   // tapping a queued card cancels it
             queued = s; has = true; return false;
         }
         // Call every frame: fires the queued upgrade once possible. Returns true on the frame it bought.

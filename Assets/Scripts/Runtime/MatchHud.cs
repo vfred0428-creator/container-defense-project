@@ -31,8 +31,11 @@ namespace ContainerDefense
                 return;
             }
             var layout = PlanMatch();
-            session.Arena.DrawLabels(); HouseInterior();
-            MapControls(layout); FullMapOverlay(layout); PadTargets(layout); ThreatEdge(); TopBar(layout); LeftColumn(layout); MiniMap(layout.MiniMap); HouseBoard(layout.Board); Toasts(layout.Toasts);
+            bool controlsEnabled = GUI.enabled;
+            GUI.enabled = controlsEnabled && !session.Paused && !session.Match.Finished;
+            session.Arena.DrawLabels(); HouseInterior(layout);
+            MapControls(layout); RoomEntry(layout); FullMapOverlay(layout); PadTargets(layout); ThreatEdge(); TopBar(layout); LeftColumn(layout); MiniMap(layout.MiniMap); HouseBoard(layout.Board); Toasts(layout.Toasts); PassiveToast(layout); CoinFlights();
+            GUI.enabled = controlsEnabled;
             if (session.Paused) PauseScreen();
             else if (session.Match.Finished) Results();
         }
@@ -68,7 +71,7 @@ namespace ContainerDefense
             HudLayout.ReservedRight = (width - l.MiniMap.x + G) / width;
             foreach (var r in new[] { l.Strip,l.Boss,l.Gold,l.Timer,l.Gear,l.MiniMap,l.Left,l.Board })
                 HudLayout.Block(new Rect(r.x * scale,r.y * scale,r.width * scale,r.height * scale));
-            if (!string.IsNullOrEmpty(session.CurrentNotice) || RouteWarning()) HudLayout.Block(new Rect(l.Toasts.x * scale,l.Toasts.y * scale,l.Toasts.width * scale,l.Toasts.height * scale));
+            if (!string.IsNullOrEmpty(session.CurrentNotice) || RouteWarning() || session.Interior.BossIncoming) HudLayout.Block(new Rect(l.Toasts.x * scale,l.Toasts.y * scale,l.Toasts.width * scale,l.Toasts.height * scale));
             return l;
         }
         private bool RouteWarning()
@@ -162,7 +165,7 @@ namespace ContainerDefense
             if (view.Mode == ViewMode.Neighborhood) return;
             if (view.ViewingOwnBase) {
                 if (HudTheme.Button(Cut.Top(ref area,Touch,G),"FULL MAP",ButtonKind.Secondary,!finished)) session.OpenFullMap();
-                if (CanOpenRoom && HudTheme.Button(Cut.Top(ref area,Touch,G),RoomOpen ? "VIEW YARD" : "MY ROOM",ButtonKind.Secondary,!finished)) RoomOpen = !RoomOpen;
+                if (CanOpenRoom && HudTheme.Button(Cut.Top(ref area,Touch,G),session.Interior.ForcedOut ? "UNDER ATTACK" : RoomOpen ? "GO OUTSIDE" : "GO INSIDE",ButtonKind.Secondary,!finished && !session.Interior.ForcedOut)) { session.Interior.Toggle(); ShowBuildBoard(false); }
                 return;
             }
             if (!m.Players[0].Eliminated && !view.HomeUnderThreat) {
@@ -259,14 +262,17 @@ namespace ContainerDefense
             var view = session.View;
             if (view.Mode == ViewMode.FullMap) lines.Add(new KeyValuePair<string,Color>("Full map  ·  tap a house to view that base",HudTheme.Ink));
             else if (view.ViewingOther) lines.Add(new KeyValuePair<string,Color>((view.Spectating ? "Spectating " : "Viewing ") + session.Match.Players[view.ViewedPlayer].Name + "'s base  ·  read only",HudTheme.Ink));
-            if (view.HomeUnderThreat) lines.Add(new KeyValuePair<string,Color>("The boss is heading for your house!",HudTheme.Bad));
+            if (session.Interior.BossIncoming) lines.Add(new KeyValuePair<string,Color>("The boss is coming to your house!  " + Mathf.CeilToInt(session.Interior.BossEta) + "s",HudTheme.Bad));
+            else if (view.HomeUnderThreat) lines.Add(new KeyValuePair<string,Color>("The boss is heading for your house!",HudTheme.Bad));
             else if (RouteWarning()) lines.Add(new KeyValuePair<string,Color>("Your house is on the boss route",HudTheme.Bad));
             if (lines.Count < 2 && !string.IsNullOrEmpty(session.CurrentNotice) && !session.Match.Finished) lines.Add(new KeyValuePair<string,Color>(session.CurrentNotice,HudTheme.Gold));
             float y = slot.yMax;
             for (int i = lines.Count - 1; i >= 0 && i >= lines.Count - 2; i--) {
                 var size = HudTheme.TextStyle(HudTheme.Label,true,TextAnchor.MiddleCenter,false).CalcSize(new GUIContent(lines[i].Key));
                 float w = Mathf.Min(slot.width,size.x + 64); var r = new Rect(slot.center.x - w / 2,y - 56,w,56);
-                HudTheme.Panel(r,false); HudTheme.Text(Cut.Inset(r,12),lines[i].Key,HudTheme.Label,lines[i].Value,true,TextAnchor.MiddleCenter);
+                bool danger = lines[i].Value == HudTheme.Bad;
+                if (danger) { HudTheme.Fill(r,HudTheme.Hex(0x000000,.35f),14); HudTheme.Fill(Cut.Inset(r,2),HudTheme.DangerFill,12); } else HudTheme.Panel(r,false);
+                HudTheme.Text(Cut.Inset(r,12),lines[i].Key,HudTheme.Label,danger ? Color.white : lines[i].Value,true,TextAnchor.MiddleCenter);
                 y -= 64;
             }
         }

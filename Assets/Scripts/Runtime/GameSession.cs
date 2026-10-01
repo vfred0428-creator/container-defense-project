@@ -12,6 +12,12 @@ namespace ContainerDefense
         public bool PracticeRanked { get; private set; }
         // TFT-style view: whole neighbourhood while claiming, then your base; scout others or open the full map.
         public MatchView View { get; private set; }
+        // Inside your room or out on the board, the one queued bed/door upgrade, and the double-buy guard.
+        public InteriorView Interior { get; private set; }
+        public UpgradeQueue Queue { get; private set; }
+        private PurchaseGuard purchaseGuard;
+        // Forwarded match events, for HUD effects that live outside the arena (room puffs, coins).
+        public event System.Action<MatchEvent> LocalEvent;
         // True while the camera shows the whole neighbourhood (claim race or full-map view).
         public bool Overview { get { return View.Mode != ViewMode.Base; } set { if (value) View.OpenFullMap(); else View.CloseFullMap(); } }
         private int walkingTo = -1;
@@ -77,6 +83,7 @@ namespace ContainerDefense
             var mapConfig = Resources.Load<MapConfig>("FixedMap");
             Match = new MatchSimulation(config != null ? config.Rules : new MatchRules(), 731 + matchNumber++, roster,mapConfig != null ? mapConfig.Definition : MapDefinition.Default());
             Match.Changed += OnMatchEvent; commands = Match.CommandsFor(0); View = new MatchView(Match,0);
+            Interior = new InteriorView(Match,0); Queue = new UpgradeQueue(); purchaseGuard = new PurchaseGuard();
             bots = new LocalBotController(Match);
             accumulated = 0; walkingTo = -1; Paused = false;
             Arena.Bind(Match,Collections.Skin(Inventory.Equipped(Account.Selected)));
@@ -184,6 +191,7 @@ namespace ContainerDefense
             // Esc backs out of the full map or a scouted base before it pauses.
             if (input.PausePressed) { if (Started && !Paused && View.Mode == ViewMode.FullMap) View.CloseFullMap(); else if (Started && !Paused && View.ViewingOther && !Match.Players[0].Eliminated) View.ReturnHome(); else TogglePause(); }
             if (Started) View.Refresh();
+            if (Started) Interior.Update(View.ViewingOwnBase,Paused || Match.Finished ? 0 : Time.deltaTime);
             if (!Started || Paused || Match.Finished) return;
             if (input.InteractPressed) Interact();
             if (input.SpectatePressed) CycleSpectator();
@@ -201,6 +209,7 @@ namespace ContainerDefense
                 else if (View.Mode == ViewMode.Neighborhood || View.ViewingOwnBase) commands.Move(move.x, move.y, Step);
                 bots.Tick(Step); Match.Tick(Step); accumulated -= Step;
             }
+            if (Queue.Tick(Match,0)) GameAudio.Play("coin");
         }
 
         public int NearbyHouse()
@@ -238,6 +247,18 @@ namespace ContainerDefense
             if (!commands.UpgradeHouse(kind)) Notify(Match.Houses[home].IsBuilding ? "An upgrade is already building." : "Not enough gold, or this upgrade is at its maximum.");
         }
 
+        // Bed or door card tap: buys now, or queues it while the house is busy (tap again to cancel).
+        // Taps within 0.3 s of an accepted one are ignored. Returns true when gold was spent.
+        public bool BuyStation(Station station)
+        {
+            if (!Started || Paused || !View.CanCommand || station == Station.Weapons || !purchaseGuard.TryPass(Time.unscaledTime)) return false;
+            bool wasQueued = Queue.Queued == station;
+            if (Queue.Request(Match,0,station)) { GameAudio.Play("coin"); return true; }
+            if (Queue.Queued == station) Notify("Queued: your " + station.ToString().ToLowerInvariant() + " upgrade starts as soon as it can. Tap again to cancel.");
+            else if (wasQueued) Notify("Queue cancelled.");
+            else Notify("Not enough gold yet.");
+            return false;
+        }
         public void CycleSpectator()
         {
             View.Spectate(1);
@@ -248,6 +269,7 @@ namespace ContainerDefense
         private void OnMatchEvent(MatchEvent e)
         {
             GameAudio.OnMatchEvent(Match,e);
+            if (LocalEvent != null) LocalEvent(e);
             Arena.Handle(e);
             if (e.Kind == MatchEventKind.Claimed && e.PlayerId == 0) { View.Refresh(); Notify("House secured. Sleep for income and place your first defense."); }
             if (e.Kind == MatchEventKind.Sleeping && e.PlayerId == 0)

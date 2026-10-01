@@ -73,14 +73,31 @@ namespace ContainerDefense
             if (!session.PlaceWeapon(0,WeaponKind.Gatling)) { Fail("Initial weapon placement failed."); yield break; }
             yield return new WaitForSecondsRealtime(2);
             if (!session.MoveWeapon(0,2) || !session.MoveWeapon(2,0)) { Fail("Weapon move failed."); yield break; }
-            session.Scout(1);
-            if (session.PlaceWeapon(1,WeaponKind.Gatling) || session.UpgradeWeapon(0) || session.MoveWeapon(0,2) || session.SellWeapon(0) || session.Repair()) { Fail("Scouting allowed mutation."); yield break; }
+            // A fixed bot may still be running to a house. Enter a real scouted base before testing its guard.
+            deadline = Time.realtimeSinceStartup + 20;
+            while (!session.Scouting && Time.realtimeSinceStartup < deadline) {
+                for (int target = 1; target < match.Players.Count && !session.Scouting; target++) session.Scout(target);
+                yield return null;
+            }
+            if (!session.Scouting) { Fail("No claimed base became available to scout."); yield break; }
+            if (session.PlaceWeapon(1,WeaponKind.Gatling) || session.UpgradeWeapon(0) || session.MoveWeapon(0,2) || session.SellWeapon(0) || session.Repair() || session.BuyStation(Station.Bed)) { Fail("Scouting allowed mutation."); yield break; }
             matchHud.ShowBuildBoard(true);
             yield return new WaitForSecondsRealtime(.8f);
             ScreenCapture.CaptureScreenshot(Path.Combine(output,"02a-readonly-scout.png"));
             yield return new WaitForSecondsRealtime(.5f);
             session.ReturnToOwnHouse();
-            session.Buy(UpgradeKind.Bed);
+            matchHud.RoomOpen = true;
+            deadline = Time.realtimeSinceStartup + 15;
+            while ((!matchHud.RoomOpen || match.Houses[0].IsBuilding || match.Players[0].Gold < match.UpgradeCost(0,UpgradeKind.Bed)) && Time.realtimeSinceStartup < deadline) yield return null;
+            if (!matchHud.RoomOpen || !session.BuyStation(Station.Bed) || session.BuyStation(Station.Bed)) { Fail("Room entry / station purchase guard failed."); yield break; }
+            yield return new WaitForSecondsRealtime(.35f);
+            session.BuyStation(Station.Door);
+            if (session.Queue.Queued != Station.Door) { Fail("Station queue failed."); yield break; }
+            double queuedGold = match.Players[0].Gold;
+            yield return new WaitForSecondsRealtime(.35f);
+            session.BuyStation(Station.Door);
+            if (session.Queue.Queued != null || match.Players[0].Gold < queuedGold) { Fail("Station cancellation spent gold."); yield break; }
+            matchHud.RoomOpen = false;
             session.TogglePause(); float pausedAt = match.Elapsed;
             yield return new WaitForSecondsRealtime(0.25f);
             if (match.Elapsed != pausedAt) { Fail("Pause failed."); yield break; }
