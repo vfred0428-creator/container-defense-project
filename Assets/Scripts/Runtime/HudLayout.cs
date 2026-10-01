@@ -11,6 +11,8 @@ namespace ContainerDefense
         public static float SimulatedInset;
         // Fractions of the screen reserved by the HUD along each edge.
         public static float ReservedTop, ReservedBottom, ReservedLeft, ReservedRight;
+        // Screen point (GUI pixels) of the gold counter, where flying coins land.
+        public static Vector2 GoldTarget;
         private static readonly List<Rect> blocked = new List<Rect>();
         public static Rect SafeArea
         {

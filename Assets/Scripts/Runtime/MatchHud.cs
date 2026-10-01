@@ -61,6 +61,7 @@ namespace ContainerDefense
             l.Left = new Rect(area.x,area.y,232,Mathf.Max(0,leftRows * Touch + (leftRows - 1) * G));
             // Publish reserved space so the camera and world labels stay clear of the HUD.
             HudLayout.Clear();
+            HudLayout.GoldTarget = new Vector2((l.Gold.x + 44) * scale,(l.Gold.y + 32) * scale);
             HudLayout.ReservedTop = (l.Strip.yMax + G) / height;
             HudLayout.ReservedBottom = (height - l.Board.y + G) / height;
             HudLayout.ReservedLeft = (l.Left.xMax + G) / width;

@@ -63,6 +63,10 @@ namespace ContainerDefense
             yield return new WaitForSecondsRealtime(1f); yield return Shot("14-boss-telegraph");
             for (int i = 0; i < 30 * 60 && m.Boss.Phase != BossPhase.Attacking; i++) { bots.Tick(1f / 30); m.Tick(1f / 30); }
             yield return Shot("15-boss-attacking");
+            // Feedback frame strip: six frames 0.12 s apart while combat runs.
+            if (m.Boss.TargetHouseId >= 0 && m.Houses[m.Boss.TargetHouseId].OwnerId >= 0) session.Scout(m.Houses[m.Boss.TargetHouseId].OwnerId); else session.ReturnToOwnHouse();
+            yield return new WaitForSecondsRealtime(.8f);
+            for (int f = 0; f < 6; f++) { for (int i = 0; i < 4; i++) { bots.Tick(1f / 30); m.Tick(1f / 30); } yield return new WaitForSecondsRealtime(.12f); yield return new WaitForEndOfFrame(); ScreenCapture.CaptureScreenshot(Path.Combine(output,"strip-" + f + ".png")); }
             hud.RoomOpen = true; session.Overview = false; yield return Shot("16-my-room"); hud.RoomOpen = false;
             session.TogglePause(); yield return Shot("17-pause"); session.TogglePause();
             for (int p = 1; p < 6; p++) m.TryForfeit(p);

@@ -7,7 +7,7 @@ namespace ContainerDefense
     // View only: one fixed map, sprites, no physics, meshes, lights, or baked gameplay screenshot.
     // Art comes from Resources/Art2D/Generated when present (the vinyl-toy set matched to vhi's mocks),
     // with the original atlas as a fallback so removing a file never breaks the scene.
-    public sealed class ArenaView : MonoBehaviour
+    public sealed partial class ArenaView : MonoBehaviour
     {
         // Projected world scale: a high-angle look with wide containers, as in the top-down mocks.
         private const float ScaleX = .95f, ScaleZ = .7f, RoadWidth = 1.6f, HouseWidth = 8.4f, AtlasHouseSize = 4.6f, WeaponSize = 1.5f;
@@ -95,6 +95,7 @@ namespace ContainerDefense
                     flashes[h,slot] = Tinted("Muzzle flash " + h + "/" + slot,soft,new Color(1,.86f,.45f,.95f),960); flashes[h,slot].enabled = false;
                 }
             }
+            BuildFeedback();
         }
         private static int Depth(float y) { return 500 - Mathf.RoundToInt(y * 20); }
         private Sprite Generated(string id,Vector2 pivot)
@@ -240,6 +241,7 @@ namespace ContainerDefense
         public void Bind(MatchSimulation simulation,SkinDefinition humanSkin = null)
         {
             match = simulation; map = match.Map; BuildMap();
+            System.Array.Clear(houseBaseScale,0,houseBaseScale.Length); lastBossHealth = -1; floaters.Clear(); flyingCoins.Clear();
             for (int i = 0; i < 6; i++) {
                 if (actors[i] != null) { actors[i].gameObject.SetActive(false); Destroy(actors[i].gameObject); }
                 string skin = i == 0 && humanSkin != null ? humanSkin.SkinId : CharacterCatalog.Key(match.Players[i].Character.Id) + "_default";
@@ -257,6 +259,7 @@ namespace ContainerDefense
         { var value = Camera.WorldToScreenPoint(world); return new Vector2(value.x,Screen.height - value.y); }
         public void Handle(MatchEvent e)
         {
+            FeedbackEvent(e);
             if (e.Kind == MatchEventKind.Shot && e.HouseId >= 0) fireUntil[e.HouseId,Mathf.Clamp((int)e.Amount,0,2)] = Time.time + .13f;
             if (e.Kind == MatchEventKind.DoorHit && e.HouseId >= 0) {
                 hitUntil[e.HouseId] = Time.time + .22f; SparkBurst(HousePoint(e.HouseId,new Vector2(HousePivot.x,.72f)));
@@ -316,8 +319,9 @@ namespace ContainerDefense
                     }
                     var muzzle = render.transform.position + new Vector3(render.flipX ? -.55f : .55f,.55f,0);
                     flashes[h,s].enabled = playing && w != null && home.Occupied && Time.time < fireUntil[h,s] - .05f;
-                    if (flashes[h,s].enabled) { flashes[h,s].transform.position = muzzle; flashes[h,s].transform.localScale = Vector3.one * (1f + Random.value * .4f); }
-                    shots[h,s].enabled = playing && w != null && home.Occupied && Time.time < fireUntil[h,s];
+                    if (flashes[h,s].enabled) { flashes[h,s].transform.position = muzzle; flashes[h,s].transform.localScale = Vector3.one * (.35f + Random.value * .15f); }
+                    // Gatling fires tracer dashes; cannon, slow and rocket fire visible projectiles (ArenaFeedback).
+                    shots[h,s].enabled = playing && w != null && w.Kind == WeaponKind.Gatling && home.Occupied && Time.time < fireUntil[h,s];
                     if (shots[h,s].enabled) { shots[h,s].SetPosition(0,muzzle); shots[h,s].SetPosition(1,bossPoint); }
                 }
             }
@@ -355,7 +359,7 @@ namespace ContainerDefense
                 route.positionCount = match.Boss.RoutePath.Length + 1; route.SetPosition(0,bossPoint);
                 for (int i = 0; i < match.Boss.RoutePath.Length; i++) route.SetPosition(i + 1,Project(match.Boss.RoutePath[i]));
             }
-            Feedback(playing,t);
+            Feedback(playing,t); TickFeedback(playing);
         }
         private void SparkBurst(Vector3 at)
         {
@@ -406,6 +410,7 @@ namespace ContainerDefense
             if (match == null || !session.Started || Event.current.type != EventType.Repaint) return;
             var old = GUI.matrix; GUI.matrix = Matrix4x4.identity;
             DrawGrade();
+            DrawFeedbackGui();
             float ui = HudTheme.Scale;
             var bossCenter = ScreenPoint(Project(match.Boss.Position) + new Vector3(0,.6f,0));
             float unit = Mathf.Abs(ScreenPoint(Vector3.right).x - ScreenPoint(Vector3.zero).x);
