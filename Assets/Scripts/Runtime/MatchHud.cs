@@ -27,6 +27,7 @@ namespace ContainerDefense
             GUI.matrix = Matrix4x4.TRS(Vector3.zero,Quaternion.identity,Vector3.one * scale);
             if (!session.Started) {
                 HudLayout.Clear();
+                if (session.Launch != null && !session.Launch.Entered) { LaunchScreen(); return; }
                 if (yardOpen) YardScreen(); else if (rankedOpen) RankedScreen(); else if (socialOpen) SocialScreen(); else if (collectionOpen) CollectionScreen(); else TitleScreen();
                 return;
             }

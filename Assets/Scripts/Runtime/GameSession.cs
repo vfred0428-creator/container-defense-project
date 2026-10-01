@@ -27,6 +27,8 @@ namespace ContainerDefense
         public int SpectatedPlayer { get { return View.ViewedPlayer; } }
         public string Notice { get; private set; }
         public ArenaView Arena { get; private set; }
+        // Launch screen: checks the bundled files load before the title appears.
+        public LaunchLoader Launch { get; private set; }
         public AccountProgression Account { get; private set; }
         public CharacterCatalog Characters { get; private set; }
         public CollectionCatalog Collections { get; private set; }
@@ -58,6 +60,7 @@ namespace ContainerDefense
             Arena = gameObject.AddComponent<ArenaView>();
             Arena.Build(Collections);
             gameObject.AddComponent<MatchHud>().Initialize(this);
+            Launch = gameObject.AddComponent<LaunchLoader>(); Launch.Initialize(this);
             ResetMatch();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             // Screenshot pass: requires --smoke-test so the account file is isolated.

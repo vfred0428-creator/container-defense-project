@@ -34,7 +34,18 @@ namespace ContainerDefense
             output = Path.GetFullPath(Arg("--ui-shots")); Directory.CreateDirectory(output);
             File.WriteAllText(Path.Combine(output,"audit.txt"),"");
             float notch; if (float.TryParse(Arg("--notch") ?? "0",out notch)) HudLayout.SimulatedInset = notch;
-            yield return new WaitForSecondsRealtime(2);
+            // Launch screen mid-load, then (with --launch-fail) its error state and a retry.
+            yield return new WaitForSecondsRealtime(.25f); yield return new WaitForEndOfFrame(); ScreenCapture.CaptureScreenshot(Path.Combine(output,"00-launch.png"));
+            float until = Time.realtimeSinceStartup + 30;
+            while (!session.Launch.Entered && Time.realtimeSinceStartup < until) {
+                if (session.Launch.Sequence.Finished && !session.Launch.Running && !session.Launch.Sequence.CanEnter) {
+                    Debug.Log("[Launch] capturing error screen, entered=" + session.Launch.Entered);
+                    yield return Shot("00b-launch-error"); yield return new WaitForSecondsRealtime(1); session.Launch.Retry(); yield return new WaitForSecondsRealtime(.3f);
+                }
+                yield return null;
+            }
+            if (!session.Launch.Entered) { Debug.LogError("Launch screen never finished."); Application.Quit(1); yield break; }
+            yield return new WaitForSecondsRealtime(1.5f);
             session.Inventory.ClaimStarter();
             yield return Shot("01-title");
             hud.OpenCollection(session.Account.Selected); yield return Shot("02-collection-skins");
