@@ -114,6 +114,18 @@ namespace ContainerDefense.Domain
             var h = houses[houseId];
             return rules.BedIncome[h.BedLevel] * (h.OwnerId < 0 ? 1 : players[h.OwnerId].Character.IncomeMultiplier);
         }
+        // Read-only previews for the house panel: income and door health at a given level for this owner.
+        public float IncomeAtLevel(int houseId,int bedLevel)
+        {
+            if (!ValidHouse(houseId) || bedLevel < 0 || bedLevel >= rules.BedIncome.Length) return 0;
+            var h = houses[houseId]; return rules.BedIncome[bedLevel] * (h.OwnerId < 0 ? 1 : players[h.OwnerId].Character.IncomeMultiplier);
+        }
+        public float DoorHealthAtLevel(int houseId,int doorLevel)
+        {
+            if (!ValidHouse(houseId) || doorLevel < 0 || doorLevel >= rules.DoorHealth.Length) return 0;
+            var h = houses[houseId]; return rules.DoorHealth[doorLevel] * (h.OwnerId < 0 ? 1 : players[h.OwnerId].Character.DoorMultiplier);
+        }
+        public float BossMoveSpeed { get { return rules.BossMoveSpeed; } }
         public float Damage(int houseId)
         {
             if (!ValidHouse(houseId)) return 0;
