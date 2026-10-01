@@ -26,7 +26,15 @@ namespace ContainerDefense
         public static Color Hex(int rgb,float alpha = 1) { return new Color((rgb >> 16 & 255) / 255f,(rgb >> 8 & 255) / 255f,(rgb & 255) / 255f,alpha); }
 
         // Canvas-scaler equivalent: Scale With Screen Size, 1920x1080, match 0.5 (geometric mean).
-        public static float Scale { get { return Mathf.Sqrt(Screen.width / ReferenceWidth * (Screen.height / ReferenceHeight)); } }
+        // On phones the scale never drops below what keeps a 96 px touch target at 48 dp (dpi / 320).
+        public static float Scale
+        {
+            get {
+                float s = Mathf.Sqrt(Screen.width / ReferenceWidth * (Screen.height / ReferenceHeight));
+                if (Application.isMobilePlatform && Screen.dpi > 0) s = Mathf.Min(Mathf.Max(s,Screen.dpi / 320f),Screen.height / 760f);
+                return s;
+            }
+        }
 
         private static void Ensure()
         {
