@@ -12,3 +12,11 @@ TestResults/
 *.user
 *.pidb
 *.unitypackage
+[Mm]emory[Cc]aptures/
+.idea/
+*.apk
+*.aab
+*.ulf
+*.alf
+.env
+.env.*
