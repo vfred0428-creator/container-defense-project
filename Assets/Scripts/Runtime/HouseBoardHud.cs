@@ -66,27 +66,71 @@ namespace ContainerDefense
             bool canRepair = live.Health < live.MaxHealth && !live.IsBuilding && m.Players[0].Gold >= MatchSimulation.RepairCost;
             if (HudTheme.Button(buttons[buttons.Length - 1],MatchSimulation.RepairCost.ToString(),ButtonKind.Primary,"icon_repair",canRepair) && !session.Repair()) session.Notify("Repair needs 40 gold and a damaged door.");
         }
+        // Room cards: icon, level and effect, price (red when you cannot afford it), queued badge and the action.
+        // Holding a card body for 0.4 s shows the next level. The Weapons card shows what you own and opens the
+        // existing weapon catalog, which hands off to the yard pads.
+        private int heldCard = -1; private float heldSince;
+        private const float HoldSeconds = .4f;
+        public void HoldCard(int id) { heldCard = id; heldSince = -10; }
         private void StationCards(Rect area,int house)
         {
-            var cards = Cut.Row(area,3,G); var m = session.Match;
+            var cards = Cut.Row(area,3,G); var m = session.Match; double gold = m.Players[0].Gold;
             for (int i = 0; i < cards.Length; i++) {
                 var station = (Station)i; var card = cards[i]; HudTheme.Card(card);
                 var inner = Cut.Inset(card,14); var action = Cut.Bottom(ref inner,Touch,8);
                 var state = HouseStations.State(m,0,station,session.Queue);
-                string title = station == Station.Weapons ? "WEAPONS" : station.ToString().ToUpperInvariant() + "  Lv " + HouseStations.Level(m,house,station);
-                HudTheme.Text(Cut.Top(ref inner,38),title,HudTheme.Body,HudTheme.Ink,true);
-                HudTheme.Text(Cut.Top(ref inner,32),state == CardState.Queued ? "Waiting for gold / builder" : HouseStations.Effect(m,house,station),HudTheme.Label,state == CardState.Queued ? HudTheme.Gold : HudTheme.Muted);
+                int cost = HouseStations.Cost(m,house,station);
+                var body = new Rect(card.x,card.y,card.width,action.y - card.y - 4);
+                // Icon column: bed or door icon; for weapons, the weapons you own with their levels.
+                var head = Cut.Top(ref inner,38);
+                if (station != Station.Weapons) HudIcons.Draw(Cut.Left(ref head,38,10),station == Station.Bed ? "icon_bed" : "icon_door");
+                string title = station == Station.Weapons ? "WEAPONS  " + HouseStations.Owned(m,house) + "/3" : station.ToString().ToUpperInvariant() + "  Lv " + HouseStations.Level(m,house,station);
+                // Right of the title: the queued badge, or the price (red while it is out of reach).
+                if (state == CardState.Queued) {
+                    var badge = Cut.Right(ref head,112,8); HudTheme.Fill(badge,HudTheme.Gold,12);
+                    HudTheme.Text(badge,"QUEUED",HudTheme.Label,HudTheme.Hex(0x2A2000),true,TextAnchor.MiddleCenter);
+                } else if (cost >= 0 && state != CardState.Building) {
+                    var price = Cut.Right(ref head,station == Station.Weapons ? 150 : 110,8);
+                    HudIcons.Draw(Cut.Left(ref price,30,6),"icon_coin");
+                    HudTheme.Text(price,(station == Station.Weapons ? "from " : "") + HudTheme.Number(cost),HudTheme.Label,gold >= cost ? HudTheme.Gold : HudTheme.Bad,true);
+                }
+                HudTheme.Text(head,title,HudTheme.Body,HudTheme.Ink,true);
+                var line = Cut.Top(ref inner,32);
+                if (station == Station.Weapons && HouseStations.Owned(m,house) > 0) {
+                    foreach (var w in m.Houses[house].Weapons) {
+                        if (w == null) continue;
+                        var slot = Cut.Left(ref line,92,6); session.Arena.DrawWeaponIcon(Cut.Left(ref slot,32,4),w.Kind);
+                        HudTheme.Text(slot,"Lv " + w.Level,HudTheme.Label,w.Building ? HudTheme.Gold : HudTheme.Muted,true);
+                    }
+                } else HudTheme.Text(line,state == CardState.Queued ? "Starts when the builder and gold are ready" : HouseStations.Effect(m,house,station),HudTheme.Label,state == CardState.Queued ? HudTheme.Gold : HudTheme.Muted);
+                HoldPreview(body,i,HouseStations.Preview(m,house,station));
                 if (state == CardState.Building) {
                     var h = m.Houses[house];
                     HudTheme.Bar(Cut.Center(action,action.width,36),1 - h.BuildRemaining / Mathf.Max(.01f,h.BuildDuration),HudTheme.Good,"BUILDING  " + h.BuildRemaining.ToString("0.0") + "s");
                     continue;
                 }
-                int cost = HouseStations.Cost(m,house,station);
-                string label = station == Station.Weapons ? "OPEN YARD" : state == CardState.Max ? "MAX LEVEL" : state == CardState.Queued ? "CANCEL QUEUE" : (state == CardState.Waiting || state == CardState.TooExpensive ? "QUEUE  " : "UPGRADE  ") + HudTheme.Number(cost);
-                if (!HudTheme.Button(action,label,state == CardState.Queued ? ButtonKind.Secondary : ButtonKind.Primary,state != CardState.Max,false,HudTheme.Label)) continue;
-                if (station == Station.Weapons) { session.Interior.Exit(); ShowBuildBoard(true); }
+                string label = station == Station.Weapons ? (state == CardState.Full ? "MANAGE IN YARD" : "BUY WEAPON") : state == CardState.Max ? "MAX LEVEL" : state == CardState.Queued ? "CANCEL QUEUE" : state == CardState.Waiting || state == CardState.TooExpensive ? "QUEUE" : "UPGRADE";
+                bool enabled = state != CardState.Max && !(station == Station.Weapons && state == CardState.Waiting);
+                if (!HudTheme.Button(action,label,state == CardState.Queued || state == CardState.TooExpensive || state == CardState.Waiting ? ButtonKind.Secondary : ButtonKind.Primary,enabled,false,HudTheme.Label)) continue;
+                if (station == Station.Weapons) {
+                    session.Interior.Exit(); ShowBuildBoard(true);
+                    int free = System.Array.FindIndex(m.Houses[house].Weapons,w => w == null);
+                    if (free >= 0) { selectedSlot = free; picking = true; }   // existing catalog, then a yard pad
+                }
                 else if (session.BuyStation(station)) FlyCoins(action.center);
             }
+            if (heldCard >= 0 && heldCard < cards.Length && Time.unscaledTime - heldSince >= HoldSeconds) {
+                var card = cards[heldCard]; var tip = new Rect(card.x,card.y - 76 - G,card.width,76);
+                HudTheme.Panel(tip); HudTheme.Text(Cut.Inset(tip,14),HouseStations.Preview(m,house,(Station)heldCard),HudTheme.Label,HudTheme.Ink,true,TextAnchor.MiddleCenter,true);
+            }
+        }
+        // Press-and-hold on a card body (not its button) shows the next-level preview while held.
+        private void HoldPreview(Rect body,int id,string preview)
+        {
+            HudAudit.Interactive(body,"Card " + id + " preview");
+            var e = Event.current;
+            if (e.type == EventType.MouseDown && body.Contains(e.mousePosition)) { heldCard = id; heldSince = Time.unscaledTime; e.Use(); }
+            else if (heldCard == id && (e.type == EventType.MouseUp || e.rawType == EventType.MouseUp)) heldCard = -1;
         }
         private void HouseUpgrade(Rect r,HouseState house,UpgradeKind kind,string name)
         {

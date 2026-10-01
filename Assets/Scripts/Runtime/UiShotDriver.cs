@@ -70,10 +70,17 @@ namespace ContainerDefense
             yield return new WaitForSecondsRealtime(.8f);
             for (int f = 0; f < 6; f++) { for (int i = 0; i < 4; i++) { bots.Tick(1f / 30); m.Tick(1f / 30); } yield return new WaitForSecondsRealtime(.12f); yield return new WaitForEndOfFrame(); ScreenCapture.CaptureScreenshot(Path.Combine(output,"strip-" + f + ".png")); }
             session.ReturnToOwnHouse(); hud.RoomOpen = true; session.Overview = false; yield return new WaitForSecondsRealtime(.6f); yield return Shot("16-my-room");
+            // Buying strip: before, the tap (coins fly), building, and the level-up puff.
+            for (int f = 0; f < 4; f++) {
+                if (f == 1) session.BuyStation(Station.Bed);
+                yield return new WaitForSecondsRealtime(f == 0 ? .1f : f == 1 ? .2f : f == 2 ? .7f : 1.3f);
+                yield return new WaitForEndOfFrame(); ScreenCapture.CaptureScreenshot(Path.Combine(output,"buy-" + f + ".png"));
+            }
             session.BuyStation(Station.Bed); yield return new WaitForSecondsRealtime(.35f); session.BuyStation(Station.Door);
             yield return Shot("16a-room-queued");
             if (m.Players[0].Sleeping) m.TryToggleSleep(0);
             yield return new WaitForSecondsRealtime(1.2f); yield return Shot("16b-room-awake");
+            hud.HoldCard(1); yield return Shot("16d-room-preview"); hud.HoldCard(-1);
             for (int i = 0; i < 30 * 120 && !session.Interior.BossIncoming && !m.Finished; i++) { bots.Tick(1f / 30); m.Tick(1f / 30); session.Interior.Update(session.View.ViewingOwnBase,1f / 30); }
             if (!session.Interior.BossIncoming || !hud.RoomOpen) { Debug.LogError("Interior capture did not reach the incoming-boss room state."); Application.Quit(1); yield break; }
             yield return new WaitForSecondsRealtime(.4f); yield return Shot("16c-room-boss-coming"); hud.RoomOpen = false;

@@ -38,8 +38,6 @@ namespace ContainerDefense
         private Vector2 RP(float u,float v) { return new Vector2(room.x + u * room.width,room.y + v * room.height); }
         private Vector2 RP(Vector2 uv) { return RP(uv.x,uv.y); }
         private Rect RR(float u0,float v0,float u1,float v1) { return Rect.MinMaxRect(room.x + u0 * room.width,room.y + v0 * room.height,room.x + u1 * room.width,room.y + v1 * room.height); }
-        // Draws part of the room art elsewhere (a plush from the shelf on the bed, for example).
-        private void Crop(Rect dst,float u0,float v0,float u1,float v1) { GUI.DrawTextureWithTexCoords(dst,roomArt,new Rect(u0,1 - v1,u1 - u0,v1 - v0)); }
 
         private void HouseInterior(MatchLayout l)
         {
@@ -165,14 +163,17 @@ namespace ContainerDefense
                 var c = RP(.14f + i * .03f,.425f + Mathf.Sin(i * 1.3f) * .006f); float glow = .6f + Mathf.Sin(Time.unscaledTime * 2 + i) * .2f;
                 HudTheme.Fill(new Rect(c.x - 9,c.y - 9,18,18),HudTheme.Hex(0xFFC860,.25f * glow),9); HudTheme.Fill(new Rect(c.x - 4,c.y - 4,8,8),HudTheme.Hex(0xFFE7A0,glow),4);
             }
-            if (level >= 2) Plush(RR(.505f,.505f,.556f,.615f),.358f,.29f,.408f,.43f);
-            if (level >= 4) Plush(RR(.15f,.455f,.19f,.54f),.733f,.41f,.775f,.515f);
+            if (level >= 2) Cushion(RR(.47f,.56f,.545f,.62f),HudTheme.Hex(0xF39BB8),HudTheme.Hex(0xFFD3E1));
+            if (level >= 4) Cushion(RR(.30f,.50f,.37f,.555f),HudTheme.Hex(0x8EC7F2),HudTheme.Hex(0xD6EEFF));
             if (level >= 5) { var lamp = RP(.07f,.50f); HudTheme.Fill(new Rect(lamp.x - 60,lamp.y - 60,120,120),HudTheme.Hex(0xFFD080,.18f + Mathf.Sin(Time.unscaledTime) * .04f),60); }
         }
-        private void Plush(Rect dst,float u0,float v0,float u1,float v1)
+        // A hand-drawn cushion: soft shadow, body, lighter top and a stitched heart.
+        private void Cushion(Rect dst,Color body,Color top)
         {
             HudTheme.Fill(new Rect(dst.x + dst.width * .1f,dst.yMax - dst.height * .14f,dst.width * .8f,dst.height * .16f),HudTheme.Hex(0x3A1E10,.3f),dst.height * .08f);
-            Crop(dst,u0,v0,u1,v1);
+            HudTheme.Fill(dst,body,dst.height * .4f); HudTheme.Fill(new Rect(dst.x + dst.width * .08f,dst.y + dst.height * .1f,dst.width * .84f,dst.height * .45f),top,dst.height * .25f);
+            var c = dst.center; float s = dst.height * .16f;
+            HudTheme.Fill(new Rect(c.x - s,c.y - s * .6f,s,s),Color.white,s / 2); HudTheme.Fill(new Rect(c.x,c.y - s * .6f,s,s),Color.white,s / 2); HudTheme.Fill(new Rect(c.x - s * .7f,c.y - s * .2f,s * 1.4f,s * .9f),Color.white,s * .3f);
         }
         // The resident: in bed while sleeping, otherwise standing; walks to a station on an errand, guards the door
         // when the boss is about to arrive. Atlas frames: 0 idle, 1-2 walk, 3 sleep, 4 shoot, 7 cheer.
