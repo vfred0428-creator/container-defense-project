@@ -1,69 +1,67 @@
-# Container Defense — 2D continuation
+# Container Defense
 
-Standalone Unity/C# local survival prototype. One human and five independent bot competitors race for six exclusive container houses. There are no teams, shared gold, revives or shared upgrades.
+An existing Unity/C# solo survival prototype: one local player and five independent bots race for **12 fixed container houses**. Each house has one owner, a personal wallet, a bed, a door and three rooftop weapon sockets. No teams, shared currency or revives.
 
 ## Run
 
-Open this folder in **Unity 6.3 LTS (6000.3.0f1)**. Open `Assets/Scenes/ContainerYard.unity`, press Play, choose an unlocked character, then **PLAY**. The arena uses layered illustrations and seven 2D sprite atlases; gameplay remains the existing independent simulation.
+Use Unity **6000.3.0f1** and open `Assets/Scenes/ContainerYard.unity`. Choose an unlocked character and press **PLAY**, or use **Practice Ranked** for local rank progression.
 
-For a Windows executable, use **Container Defense → Build Windows Playtest** or run `Tools/Build-Windows.ps1`. The output is `Builds/Windows/ContainerDefense.exe`.
+`Tools/Build-Windows.ps1` builds `Builds/Windows/ContainerDefense.exe`; `-MilestonePreview` builds `Builds/Milestones/ContainerDefense.exe`. Each build first runs the domain and persistence checks. Do not run two Unity builds against the same project at once. The separate UI preview lives under `TestResults/UI-Pass/preview-build`; its age must be checked before using it as verification evidence.
 
-## Controls
+## Play
 
-- **WASD / arrow keys:** move around the yard.
-- **E / Space:** claim a nearby free house; press again to sleep. Wake with the same key.
-- **1 / 2 / 3** or HUD buttons: upgrade your bed / door / weapon.
-- **Tab:** cycle living residents after elimination.
-- **Escape:** pause, resume, restart or return to the title.
+- During the 25-second preparation period, tap a free house to walk to it and claim it. Alternatively use WASD/arrows and E/Space near its door.
+- Sleeping generates personal gold. Use the sleep/wake control or E/Space; sleeping players cannot walk.
+- Upgrade **Bed** for income and **Door** for maximum HP. Use **Build** to place Gatling, Cannon, Slow or Rocket defenses in three visible rooftop sockets, then upgrade, move or sell them. An empty house has no invisible default gun.
+- Weapons fire automatically only when built and in range. Repair restores up to 140 HP for 40 gold. Selling returns half the amount actually invested, rounded down.
+- Tap a participant portrait to scout. Other houses are read-only; exact opponent gold stays private. Return home to issue build commands. The map shows houses and the live boss position.
+- Escape pauses; Tab cycles living residents after elimination. Number keys 1/2/3 upgrade bed/door/first placed weapon.
 
-Claim before the 25-second preparation timer expires. Sleeping earns gold; waking stops income. Weapons fire automatically during combat. Bed upgrades increase income, door upgrades add maximum and current HP by the same amount, and weapon upgrades increase damage. The boss attacks one door until it breaks, then chooses another living house. Surviving residents win when the boss dies; eliminated residents remain eliminated. All houses lost ends the match in defeat.
+The cloud boss starts at a seeded edge entrance, telegraphs targets, travels along the fixed road graph and attacks at most three times per visit. A visited house gets an 18-second protection window. Destroyed or vacated houses are skipped. Losing your house eliminates you permanently for that match.
 
-## Tuning and architecture
+A match ends when the boss dies, all houses fall, or one contestant remains after at least two claimed houses entered combat. Results record placements. Current prototype rewards surviving players on boss defeat as well as the last survivor; placement-based competitive scoring is not implemented. This is local practice, not online matchmaking.
 
-### Characters and account progression
+## Characters and collection
 
-| Character | Unlock level | Personal passive |
+| Character | Account level | Personal passive |
 | --- | --- | --- |
 | Milo | 1 | +8% gold generation |
 | Lumi | 3 | +15% door maximum HP |
 | Kiko | 5 | +10% weapon damage |
-| Nori | 7 | Bed generates gold 12% faster |
+| Nori | 7 | Beds generate gold 12% faster |
 | Pip | 9 | +12% movement speed |
-| Mochi | 12 | 8% chance to pay half price for an upgrade |
-| Yume | 15 | +10% upgrade build speed |
+| Mochi | 12 | 8% chance an upgrade costs half price |
+| Yume | 15 | +10% build speed |
 
-Locked cards show their required level and can be inspected without equipping them. Unlocks are permanent and earned through play. Each passive affects only its owner. Accepted upgrades occupy one builder for 1.5 seconds (1.5 / 1.1 seconds for Yume). Mochi must afford the listed price before the discount roll; rejected purchases cannot reroll it.
+Exactly seven active skins exist: one Default per character. Historical cosmetic ownership remains in saves but retired skins cannot be equipped. Unlocks are permanent; seasons do not reset account level.
 
-Completed matches award 30 participation XP to players who claimed a house, plus personal combat survival XP (1/second, capped at 180), damage XP (1 per 30 damage, capped at 100), and 75 XP for surviving a victory. Abandoned matches and unclaimed spectators earn no XP. Results show XP and new unlocks. Each match can reward the account once.
+Stickers are signed 64-bit stacks. The one-time starter pack gives Bunny x52, Lucky Star x24, Cozy Cat x17, Good Job! x7 and Heart x38. Charisma measures unique collection ownership, not duplicate quantities or gameplay strength. The starter collection has 100 Charisma.
 
-`Assets/Resources/Characters.asset` contains the seven definitions, passives, unlock levels, XP curve and reward tuning. The default account cap is level 100; all characters unlock by level 15. The first level requires 120 XP and each subsequent requirement increases by 40 XP.
+**Social** includes a profile, local practice gifting, a quantity selector, confirmation, notification and receipt history. Transfers validate identity, quantity, ownership, overflow and retry IDs, then atomically save sender, receiver, Popularity and receipt. The two practice inboxes are local data, not real online recipients. Popularity measures received gift value and is separate from Rank and Charisma.
 
-Account XP, derived level, permanent unlocks and selected character save to `Application.persistentDataPath/account-v1.json`. Saves use an atomic replacement, checksum and backup recovery. Unreadable or newer save files are preserved rather than overwritten. Save failures display a retry option; progress remains in memory until a save succeeds. This is device-local persistence, not cloud sync or anti-cheat.
+**Practice Ranked** has Rookie, Scout, Defender, Vanguard, Champion, Ascendant, Celestial and Sovereign. The prototype uses five-star promotions, +1 for a surviving victory and -1 for a loss, tier floors and a Sovereign cap. RankPoints is stored for future rules. Ranked, Charisma and Popularity have distinct local row-based leaderboards containing actual recorded profiles.
 
-Edit `Assets/Resources/DefaultMatch.asset` in Unity to tune preparation, movement, economy, upgrades and boss statistics. That ScriptableObject is included; fallback defaults live in `MatchRules.cs`. The engine-independent domain owns claims, purchases, income, combat and outcomes. Unity handles input, rendering and HUD. Bots use the same validated commands as the human. A future server can own that command boundary, but this milestone has no networking or security guarantee.
+## Architecture and saves
 
-### Collection
+- `Assets/Scripts/Domain`: Unity-independent match authority, seeded route planner, issuer-bound commands, scouting snapshots, progression, inventory, social transactions and ranking.
+- `Assets/Scripts/Runtime`: input, camera, 2D rendering, HUD, local persistence and development-only test drivers.
+- `Assets/Resources/FixedMap.asset`: fixed houses and road graph. `DefaultMatch.asset`, `Characters.asset` and `Collections.asset` hold existing tuning/catalog data.
+- `Assets/Resources/Art2D`: active sprites. `Art/Source/Generated/v2` retains Claude's latest source artwork. Old 3D factories remain inactive.
 
-Open **COLLECTION** from character selection. The **Skins** tab supports previews, ownership and a separate equipped skin for each character. Equipment requires the character to be unlocked and the skin to be owned. Appearances carry into the selection screen and live matches, with no changes to passives or combat values.
-
-There are exactly seven active skins, one Default per character. Claim the free starter sticker pack once: Bunny x52, Lucky Star x24, Cozy Cat x17, Good Job! x7, Heart x38. Historical alternate-skin ownership stays in saves but is excluded from the current catalog and equipment.
-
-`Assets/Resources/Collections.asset` configures skin ownership IDs, character assignments, rarity, appearance colors, Charisma values, sticker metadata and starter contents. Sticker quantities use signed 64-bit integers; invalid changes and overflow are rejected. The **Stickers** tab shows exact quantities and item details. Gifting is deferred to Milestone 4.
-
-Charisma is the sum of each owned skin's value and each owned sticker type's value, once per type. Duplicate stickers do not multiply it; spending the last copy removes that type's contribution. Default skins contribute zero. The starter collection totals 100 Charisma. The score is recalculated from inventory, never treated as combat power or rank.
-
-Save schema 2 includes owned skins, per-character equipment, sticker stacks, the starter receipt and calculated Charisma. The existing save filename remains unchanged. Milestone 2 saves migrate while retaining XP, character unlocks and selection. Unknown inventory IDs are retained so temporarily removed content does not erase ownership.
+`ISaveService` / `LocalSaveService` persist `account-v1.json` in Unity's application data folder. Payload version 4 migrates versions 1-3 while retaining XP, unlocks and unknown ownership. Checksums, atomic replacement and backup recovery protect local writes; unreadable/newer files are preserved. Failed saves retain in-memory progress and show a retry. Cloud sync and cross-device authority are not implemented. Never run multiple real-profile game instances simultaneously.
 
 ## Verification
 
-`Tools/Test-Core.ps1` compiles the domain with warnings treated as errors and runs 51 regression scenarios using the Windows .NET Framework compiler. **Container Defense → Run Core Checks** also runs 12 Unity JSON/filesystem save scenarios. All 63 run before Windows builds.
+Run `Tools/Test-Core.ps1` for warning-as-error domain compilation and the regression suites. Unity's **Container Defense > Run Core Checks** additionally exercises JSON/file persistence. Use the reported counts in `PROJECT_STATUS.md`; older test folders describe older binaries.
 
-A development player accepts `--smoke-test --smoke-output "C:\absolute\output"` to exercise selection, claim, sleep, timed upgrades, pause, combat, XP rewards, saved progression, match restart, elimination and spectating, recording screenshots and a result. Run it with a visible window for screenshot capture. Test saves are isolated inside the output directory. Adding `--smoke-seed-account` seeds a new test account near Lumi's unlock boundary. After that test, launch a new process with the same output directory and `--smoke-reload-only` to verify Lumi, XP and selection survive an application restart. Test switches are excluded from release builds.
+Run all player regression checks and separate-process reloads against a built development player:
 
-Add `--collection-smoke-test` with a fresh isolated output directory to exercise starter claims, skins, equipment gates, live appearance, large sticker stacks and Charisma. A second process using that directory and `--collection-smoke-test --collection-reload-only` verifies collection persistence. This test adds a large stack only to its isolated test account.
+```powershell
+.\Tools\Verify-Player.ps1 -Player '.\Builds\Milestones\ContainerDefense.exe'
+```
 
-## Scope
+This copies the player into a fresh `TestResults/Assist-*` folder, records the runtime assembly hash, and uses isolated test accounts. It checks Social, Collection and Match in sequence, failing on timeouts, missing results or nonzero exits. It never starts Unity or deletes previous evidence. `-Suites Social,Collection` narrows the run. Windows stay visible because hidden captures can be black. The smoke drivers exercise actual session/domain APIs; they do not replace manual tap testing.
 
-Milestones 1–3: illustrated 2D presentation, one arena, local competitors, desktop HUD, seven characters with personal passives, account XP, level unlocks, cosmetic collections, Charisma and local persistence. Gifts, Popularity, profiles, ranks, backend services, storefront SDKs, final art/audio and mobile controls remain deferred to their approved milestones. Android remains a future build/input target, not a tested deliverable here.
+`Tools/Capture-UiShots.ps1` captures the UI at desktop and wide-phone aspect ratios, including simulated notch insets. Screenshot coverage is not Android device validation.
 
-See PROJECT_STATUS.md for the audited milestone state. The seven 3x3 character atlases, layered yard, house atlas, boss and shared cozy interior are in Assets/Resources/Art2D. Runtime animation supports two-frame running and expressive state poses with subtle breathing. VIEW MY ROOM while sleeping opens the interior; VIEW YARD returns to the encounter. The current HUD remains IMGUI and needs mobile controls/device validation. Old 3D artwork is archived outside Resources in Assets/Art/Legacy3D; legacy procedural factories are inactive. Generation prompts are in Tools/2D-Artwork-Prompts.md. Nunito uses fixed 600/800 weights instantiated from the bundled OFL variable source for reliable Unity rendering.
+See `PROJECT_STATUS.md` for current work, evidence and remaining limitations. Online multiplayer, backend gifting, platform SDKs, purchases and Android/Steam release readiness remain out of scope for this checkpoint.
