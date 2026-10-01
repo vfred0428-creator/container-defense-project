@@ -112,7 +112,8 @@ namespace ContainerDefense
             var inner = Cut.Inset(l.Boss,14);
             var row = Cut.Top(ref inner,36,6);
             bool prep = m.Phase == MatchPhase.Preparation;
-            HudTheme.Text(Cut.Left(ref row,200),prep ? "PREPARE" : "WAVE " + m.Boss.Wave,HudTheme.Body,prep ? HudTheme.Gold : HudTheme.Ink,true);
+            HudIcons.Draw(Cut.Left(ref row,36,8),"icon_skull");
+            HudTheme.Text(Cut.Left(ref row,180),prep ? "PREPARE" : "WAVE " + m.Boss.Wave,HudTheme.Body,prep ? HudTheme.Gold : HudTheme.Ink,true);
             HudTheme.Text(row,BossStatus(),HudTheme.Label,HudTheme.Muted,false,TextAnchor.MiddleRight);
             HudTheme.Bar(Cut.Top(ref inner,30,6),m.Boss.Health / m.Boss.MaxHealth,HudTheme.Bad,HudTheme.Number(Mathf.Ceil(m.Boss.Health)) + " / " + HudTheme.Number(m.Boss.MaxHealth));
             HudTheme.Text(inner,BossDetail(),HudTheme.Label,HudTheme.Muted,false,TextAnchor.MiddleCenter);
@@ -225,8 +226,9 @@ namespace ContainerDefense
                 var f = arena.MapFraction(h.Center);
                 var cell = new Rect(inner.x + f.x * inner.width - cellW / 2,inner.y + f.y * inner.height - cellH / 2,cellW,cellH);
                 cell.x = Mathf.Clamp(cell.x,inner.x - 8,inner.xMax - cellW + 8); cell.y = Mathf.Clamp(cell.y,inner.y - 8,inner.yMax - cellH + 8);
-                Color c = h.Destroyed || h.Vacated ? HudTheme.Hex(0x2E3550) : h.OwnerId == 0 ? HudTheme.PrimaryFill : h.OwnerId < 0 ? HudTheme.Hex(0x3A4670) : HudTheme.SecondaryFill;
-                HudTheme.Fill(cell,c,8);
+                Color c = h.Destroyed || h.Vacated ? HudTheme.Hex(0x4A5070) : h.OwnerId == 0 ? HudTheme.PrimaryFill : h.OwnerId < 0 ? HudTheme.Hex(0x8A93AD) : HudTheme.Info;
+                // House-shaped markers tinted by owner, as in the mocks' minimap.
+                var oldColor = GUI.color; GUI.color = c; HudIcons.Draw(Cut.Center(cell,cellH + 8,cellH + 8),"icon_house"); GUI.color = oldColor;
                 if (h.Id == m.Boss.TargetHouseId) HudTheme.Ring(cell);
                 HudTheme.OutlinedText(cell,(h.Id + 1).ToString("00"),HudTheme.Label,h.OwnerId < 0 ? HudTheme.Muted : Color.white,TextAnchor.MiddleCenter);
             }
@@ -245,6 +247,7 @@ namespace ContainerDefense
                 Vector2 point = session.Arena.ScreenPoint(h.Center) / scale;
                 float unit = Mathf.Abs(session.Arena.ScreenPoint(new Point2(h.Center.X + 1,h.Center.Z)).x / scale - point.x);
                 var rect = new Rect(point.x - unit * 2.6f,point.y - unit * 2.2f,unit * 5.2f,unit * 3.8f);
+                if (rect.xMin < safe.xMin || rect.xMax > safe.xMax || rect.yMin < safe.yMin || rect.yMax > safe.yMax) continue;
                 if (rect.width < Touch || rect.Overlaps(l.Board) || rect.Overlaps(l.Strip) || rect.Overlaps(l.MiniMap) || rect.Overlaps(l.Left) || rect.Overlaps(l.Boss)) continue;
                 if (Hit(rect,"Claim house " + (h.Id + 1))) session.WalkToHouse(h.Id);
             }
