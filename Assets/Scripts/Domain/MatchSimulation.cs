@@ -94,7 +94,8 @@ namespace ContainerDefense.Domain
             HouseState h = houses[p.HouseId];
             if (!p.Sleeping && p.Position.Distance(h.Entry) > rules.ClaimRadius) return false;
             p.Sleeping = !p.Sleeping;
-            p.Position = p.Sleeping ? new Point2(h.Center.X - 2,h.Center.Z + .4f) : h.Entry;
+            // Asleep means indoors in bed: the resident stays at the door, never on the roof (renderers hide sleepers).
+            p.Position = h.Entry;
             navigation[playerId] = null;
             Emit(MatchEventKind.Sleeping, playerId, h.Id); return true;
         }

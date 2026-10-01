@@ -18,6 +18,8 @@ namespace ContainerDefense.Domain
         public long LastRewardedSequence;
         // Added after v4 without a version bump: older saves load with null and get defaults.
         public AudioPrefs Audio;
+        // Added without a version bump: your board decorations. Null in older saves means the starter yard.
+        public YardData Yard;
     }
     [Serializable]
     public sealed class AudioPrefs
@@ -66,6 +68,8 @@ namespace ContainerDefense.Domain
         public RankData Rank { get { return RankProgression.Normalize(data.Rank); } }
         public AudioPrefs Audio { get { return AudioPrefs.Normalize(data.Audio); } }
         public void SetAudio(AudioPrefs prefs) { data.Audio = AudioPrefs.Normalize(prefs); }
+        public YardData Yard { get { return YardLayout.Normalize(data.Yard); } }
+        public void SetYard(YardData yard) { data.Yard = YardLayout.Normalize(yard); }
         public long XpInLevel { get { return TotalXp - rules.XpForLevel(Level); } }
         public int XpNeeded { get { return Level <= rules.XpToNextLevel.Length ? rules.XpToNextLevel[Level - 1] : 0; } }
         public bool IsUnlocked(CharacterId id) { return unlocked.Contains(id); }
@@ -84,7 +88,8 @@ namespace ContainerDefense.Domain
                 Rank = RankProgression.Normalize(saved.Rank),
                 TotalXp = Math.Max(0,Math.Min(1000000000,saved.TotalXp)),
                 MatchesStarted = Math.Max(0,Math.Min(long.MaxValue - 1,saved.MatchesStarted)),
-                Audio = AudioPrefs.Normalize(saved.Audio)
+                Audio = AudioPrefs.Normalize(saved.Audio),
+                Yard = saved.Yard == null ? YardLayout.Starter() : YardLayout.Normalize(saved.Yard)
             };
             data.LastRewardedSequence = Math.Max(0,Math.Min(data.MatchesStarted,saved.LastRewardedSequence));
             data.Level = rules.Level(data.TotalXp);
@@ -133,7 +138,7 @@ namespace ContainerDefense.Domain
             for (int i = 0; i < 7; i++) if (IsUnlocked((CharacterId)i)) keys.Add(CharacterCatalog.Key((CharacterId)i));
             return new AccountData { TotalXp = TotalXp, Level = Level, SelectedCharacter = CharacterCatalog.Key(Selected),
                 UnlockedCharacters = keys.ToArray(), MatchesStarted = data.MatchesStarted, LastRewardedSequence = data.LastRewardedSequence,
-                Collection = Inventory.Snapshot(), Social = Social, Rank = Rank, Audio = Audio };
+                Collection = Inventory.Snapshot(), Social = Social, Rank = Rank, Audio = Audio, Yard = Yard };
         }
         internal void AdoptSocial(AccountData saved)
         { Inventory = new InventorySystem(saved.Collection,collections); data.Social = SocialState.Copy(saved.Social,collections); }

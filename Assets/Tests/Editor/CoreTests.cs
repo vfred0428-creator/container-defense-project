@@ -150,7 +150,7 @@ public static class CoreTests
             Console.WriteLine("Default balance sample: " + wins + " boss defeats / " + losses + " full eliminations.");
             True(wins > 0);
         });
-        return passed + " core regression scenarios passed. " + MilestoneTwoTests.Run() + " " + CollectionTests.Run() + " " + SocialTests.Run() + " " + RankingTests.Run() + " " + NeighborhoodTests.Run() + " " + MatchContractTests.Run() + " " + MatchViewTests.Run();
+        return passed + " core regression scenarios passed. " + MilestoneTwoTests.Run() + " " + CollectionTests.Run() + " " + SocialTests.Run() + " " + RankingTests.Run() + " " + NeighborhoodTests.Run() + " " + MatchContractTests.Run() + " " + MatchViewTests.Run() + " " + BoardTests.Run();
     }
     private static MatchRules Rules() { return new MatchRules { UpgradeSeconds = 0 }; }
     private static MatchSimulation New() { return new MatchSimulation(Rules()); }

@@ -15,6 +15,8 @@ namespace ContainerDefense.Domain
         public double Invested { get; internal set; }
         public float BuildRemaining { get; internal set; }
         public float ShotCooldown { get; internal set; }
+        // Build pad on your board (0..7). Display only: damage, range and targeting still use the slot.
+        public int Spot { get; internal set; }
         public bool Building { get { return BuildRemaining > 0; } }
     }
     public static class WeaponCatalog
@@ -34,8 +36,8 @@ namespace ContainerDefense.Domain
     // Read-only scouting data: value copies only, no live state objects, and no exact gold for other players.
     public struct WeaponScout
     {
-        public readonly bool Present; public readonly WeaponKind Kind; public readonly int Level; public readonly bool Building;
-        internal WeaponScout(WeaponPlacement w) { Present = w != null; Kind = w != null ? w.Kind : WeaponKind.Gatling; Level = w != null ? w.Level : 0; Building = w != null && w.Building; }
+        public readonly bool Present; public readonly WeaponKind Kind; public readonly int Level; public readonly bool Building; public readonly int Spot;
+        internal WeaponScout(WeaponPlacement w) { Present = w != null; Kind = w != null ? w.Kind : WeaponKind.Gatling; Level = w != null ? w.Level : 0; Building = w != null && w.Building; Spot = w != null ? w.Spot : -1; }
     }
     public enum WealthBand { Unknown, Low, Medium, High }
     public sealed class HouseScout
@@ -76,7 +78,8 @@ namespace ContainerDefense.Domain
         public void Move(float x,float z,float dt) { match.Move(PlayerId,x,z,dt); }
         public void Navigate(Point2 goal,float dt) { match.Navigate(PlayerId,goal,dt); }
         public bool UpgradeHouse(UpgradeKind kind) { return match.TryUpgrade(PlayerId,Home,kind); }
-        public bool Place(int slot,WeaponKind kind) { return match.TryPlaceWeapon(PlayerId,Home,slot,kind); }
+        public bool Place(int slot,WeaponKind kind,int spot = -1) { return match.TryPlaceWeapon(PlayerId,Home,slot,kind,spot); }
+        public bool MoveToSpot(int slot,int spot) { return match.TryMoveWeaponSpot(PlayerId,Home,slot,spot); }
         public bool Upgrade(int slot) { return match.TryUpgradeWeapon(PlayerId,Home,slot); }
         public bool MoveWeapon(int from,int to) { return match.TryMoveWeapon(PlayerId,Home,from,to); }
         public bool Sell(int slot) { return match.TrySellWeapon(PlayerId,Home,slot); }
@@ -112,11 +115,14 @@ namespace ContainerDefense.Domain
         }
         public Point2 WeaponPoint(int houseId,int slot)
         { var h = houses[houseId]; return new Point2(h.Center.X + (slot - 1) * 1.9f,h.Center.Z + .65f); }
-        public bool TryPlaceWeapon(int playerId,int houseId,int slot,WeaponKind kind)
+        public bool TryPlaceWeapon(int playerId,int houseId,int slot,WeaponKind kind) { return TryPlaceWeapon(playerId,houseId,slot,kind,-1); }
+        // spot -1 picks the first free pad; an explicit spot must be a free pad on your own board.
+        public bool TryPlaceWeapon(int playerId,int houseId,int slot,WeaponKind kind,int spot)
         {
             PlayerState p; HouseState h; var d = WeaponCatalog.Get(kind);
             if (!OwnedHome(playerId,houseId,out p,out h) || !ValidSlot(slot) || d == null || h.Weapons[slot] != null || h.IsBuilding || !CanDebit(p,d.Cost)) return false;
-            p.Gold -= d.Cost; h.Weapons[slot] = new WeaponPlacement { Kind = kind,Level = 1,Invested = d.Cost,BuildRemaining = rules.UpgradeSeconds / p.Character.BuildMultiplier };
+            if (spot == -1) spot = FreeSpot(h); else if (!SpotFree(h,spot,-1)) return false;
+            p.Gold -= d.Cost; h.Weapons[slot] = new WeaponPlacement { Kind = kind,Level = 1,Invested = d.Cost,Spot = spot,BuildRemaining = rules.UpgradeSeconds / p.Character.BuildMultiplier };
             Emit(MatchEventKind.Placed,playerId,houseId,slot); return true;
         }
         public int WeaponUpgradeCost(int houseId,int slot)
@@ -136,6 +142,19 @@ namespace ContainerDefense.Domain
             h.LastUpgradePaid = paid; h.LastUpgradeDiscounted = lucky;
             Emit(MatchEventKind.Upgraded,playerId,houseId,(float)paid); return true;
         }
+        public bool TryMoveWeaponSpot(int playerId,int houseId,int slot,int spot)
+        {
+            PlayerState p; HouseState h;
+            if (!OwnedHome(playerId,houseId,out p,out h) || !ValidSlot(slot) || h.Weapons[slot] == null || h.Weapons[slot].Building || !SpotFree(h,spot,slot)) return false;
+            h.Weapons[slot].Spot = spot; Emit(MatchEventKind.Moved,playerId,houseId,slot); return true;
+        }
+        private static bool SpotFree(HouseState h,int spot,int ignoreSlot)
+        {
+            if (spot < 0 || spot >= YardLayout.PadCount) return false;
+            for (int s = 0; s < 3; s++) if (s != ignoreSlot && h.Weapons[s] != null && h.Weapons[s].Spot == spot) return false;
+            return true;
+        }
+        private static int FreeSpot(HouseState h) { for (int i = 0; i < YardLayout.PadCount; i++) if (SpotFree(h,i,-1)) return i; return 0; }
         // Moves stay inside the issuer's own house and keep level, investment and cooldown.
         public bool TryMoveWeapon(int playerId,int houseId,int from,int to)
         {
