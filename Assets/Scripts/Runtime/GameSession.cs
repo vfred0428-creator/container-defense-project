@@ -10,13 +10,15 @@ namespace ContainerDefense
         public bool Started { get; private set; }
         public bool Paused { get; private set; }
         public bool PracticeRanked { get; private set; }
-        public bool Overview { get; set; }
-        private int inspectedPlayer;
+        // TFT-style view: whole neighbourhood while claiming, then your base; scout others or open the full map.
+        public MatchView View { get; private set; }
+        // True while the camera shows the whole neighbourhood (claim race or full-map view).
+        public bool Overview { get { return View.Mode != ViewMode.Base; } set { if (value) View.OpenFullMap(); else View.CloseFullMap(); } }
         private int walkingTo = -1;
-        public int ViewedPlayer { get { return Match.Players[0].Eliminated ? SpectatedPlayer : inspectedPlayer; } }
-        public bool Scouting { get { return ViewedPlayer != 0; } }
+        public int ViewedPlayer { get { return View.ViewedPlayer; } }
+        public bool Scouting { get { return View.ViewingOther; } }
         public ILeaderboardService Leaderboards { get; private set; }
-        public int SpectatedPlayer { get; private set; }
+        public int SpectatedPlayer { get { return View.ViewedPlayer; } }
         public string Notice { get; private set; }
         public ArenaView Arena { get; private set; }
         public AccountProgression Account { get; private set; }
@@ -73,9 +75,9 @@ namespace ContainerDefense
             for (int i = 1; i < 6; i++) roster[i] = Characters.Get((CharacterId)(((int)Account.Selected + i) % 7));
             var mapConfig = Resources.Load<MapConfig>("FixedMap");
             Match = new MatchSimulation(config != null ? config.Rules : new MatchRules(), 731 + matchNumber++, roster,mapConfig != null ? mapConfig.Definition : MapDefinition.Default());
-            Match.Changed += OnMatchEvent; commands = Match.CommandsFor(0);
+            Match.Changed += OnMatchEvent; commands = Match.CommandsFor(0); View = new MatchView(Match,0);
             bots = new LocalBotController(Match);
-            accumulated = 0; SpectatedPlayer = inspectedPlayer = 0; walkingTo = -1; Overview = true; Paused = false;
+            accumulated = 0; walkingTo = -1; Paused = false;
             Arena.Bind(Match,Collections.Skin(Inventory.Equipped(Account.Selected))); Notify("Run to a free door. Press E to claim it.");
         }
 
@@ -90,8 +92,11 @@ namespace ContainerDefense
         public void TogglePause() { if (Started && !Match.Finished) { Paused = !Paused; accumulated = 0; } }
         public void Quit() { Application.Quit(); }
         public void Scout(int player)
-        { if (!Started || player < 0 || player >= Match.Players.Count) return; inspectedPlayer = player; SpectatedPlayer = player; Overview = false; }
-        public void ReturnToOwnHouse() { inspectedPlayer = 0; Overview = Match.Players[0].HouseId < 0; }
+        { if (Started) View.View(player); }
+        public void ReturnToOwnHouse() { View.ReturnHome(); }
+        public void OpenFullMap() { if (Started) View.OpenFullMap(); }
+        public void CloseFullMap() { View.CloseFullMap(); }
+        public void ViewHouse(int house) { View.SelectHouse(house); }
         public void WalkToHouse(int house)
         { if (Started && !Paused && !Scouting && house >= 0 && house < Match.Houses.Count && Match.Players[0].HouseId < 0) walkingTo = house; }
         public bool PlaceWeapon(int slot,WeaponKind kind) { return CanBuild && commands.Place(slot,kind); }
@@ -99,7 +104,8 @@ namespace ContainerDefense
         public bool MoveWeapon(int from,int to) { return CanBuild && commands.MoveWeapon(from,to); }
         public bool SellWeapon(int slot) { return CanBuild && commands.Sell(slot); }
         public bool Repair() { return CanBuild && commands.Repair(); }
-        private bool CanBuild { get { return Started && !Paused && !Match.Finished && !Scouting && !Match.Players[0].Eliminated; } }
+        // Commands only while looking at your own living base; scouting and the full map are read-only.
+        private bool CanBuild { get { return Started && !Paused && View.CanCommand; } }
 
         private void InitializeAccount()
         {
@@ -169,7 +175,9 @@ namespace ContainerDefense
 
         private void Update()
         {
-            if (input.PausePressed) TogglePause();
+            // Esc backs out of the full map or a scouted base before it pauses.
+            if (input.PausePressed) { if (Started && !Paused && View.Mode == ViewMode.FullMap) View.CloseFullMap(); else if (Started && !Paused && View.ViewingOther && !Match.Players[0].Eliminated) View.ReturnHome(); else TogglePause(); }
+            if (Started) View.Refresh();
             if (!Started || Paused || Match.Finished) return;
             if (input.InteractPressed) Interact();
             if (input.SpectatePressed) CycleSpectator();
@@ -184,10 +192,9 @@ namespace ContainerDefense
                     if (commands.Claim(walkingTo)) { walkingTo = -1; commands.ToggleSleep(); }
                     else if (Match.Houses[walkingTo].OwnerId >= 0) { walkingTo = -1; Notify("That house was claimed. Choose another free door."); }
                 }
-                else if (!Scouting) commands.Move(move.x, move.y, Step);
+                else if (View.Mode == ViewMode.Neighborhood || View.ViewingOwnBase) commands.Move(move.x, move.y, Step);
                 bots.Tick(Step); Match.Tick(Step); accumulated -= Step;
             }
-            if (Match.Players[0].Eliminated && Match.Players[SpectatedPlayer].Eliminated) CycleSpectator();
         }
 
         public int NearbyHouse()
@@ -205,7 +212,7 @@ namespace ContainerDefense
 
         public void Interact()
         {
-            if (!Started || Paused || Match.Finished || Scouting || Match.Players[0].Eliminated) return;
+            if (!Started || Paused || Match.Finished || Match.Players[0].Eliminated || !(View.Mode == ViewMode.Neighborhood || View.ViewingOwnBase)) return;
             PlayerState p = Match.Players[0];
             if (p.HouseId >= 0)
             {
@@ -219,7 +226,7 @@ namespace ContainerDefense
 
         public void Buy(UpgradeKind kind)
         {
-            if (!Started || Paused || Match.Finished || Scouting) return;
+            if (!Started || Paused || !View.CanCommand) return;
             int home = Match.Players[0].HouseId;
             if (home < 0 || Match.Players[0].Eliminated) return;
             if (!commands.UpgradeHouse(kind)) Notify(Match.Houses[home].IsBuilding ? "An upgrade is already building." : "Not enough gold, or this upgrade is at its maximum.");
@@ -227,12 +234,7 @@ namespace ContainerDefense
 
         public void CycleSpectator()
         {
-            if (!Match.Players[0].Eliminated) return;
-            for (int i = 1; i <= 6; i++)
-            {
-                int id = (SpectatedPlayer + i) % 6;
-                if (!Match.Players[id].Eliminated) { SpectatedPlayer = id; return; }
-            }
+            View.Spectate(1);
         }
 
         public void Notify(string text) { Notice = text; noticeUntil = Time.unscaledTime + 4; }
@@ -240,7 +242,7 @@ namespace ContainerDefense
         private void OnMatchEvent(MatchEvent e)
         {
             Arena.Handle(e);
-            if (e.Kind == MatchEventKind.Claimed && e.PlayerId == 0) { Overview = false; Notify("House secured. Sleep for income and place your first defense."); }
+            if (e.Kind == MatchEventKind.Claimed && e.PlayerId == 0) { View.Refresh(); Notify("House secured. Sleep for income and place your first defense."); }
             if (e.Kind == MatchEventKind.Sleeping && e.PlayerId == 0)
                 Notify(Match.Players[0].Sleeping ? "Earning gold. Choose bed, door or weapon upgrades below." : "Awake. Income paused.");
             if (e.Kind == MatchEventKind.UpgradeStarted && e.PlayerId == 0)

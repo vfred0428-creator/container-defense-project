@@ -15,7 +15,7 @@ namespace ContainerDefense
             HudTheme.Panel(panel); var inner = Cut.Inset(panel,20);
             if (viewed.HouseId < 0) { ClaimBoard(inner,viewed); return; }
             var h = session.ScoutView[viewed.HouseId];
-            bool own = !session.Scouting && !viewed.Eliminated && !m.Finished && !session.Paused;
+            bool own = session.View.CanCommand && !session.Paused;
             var left = Cut.Left(ref inner,432,24);
             HouseSummary(left,h,viewed,own);
             if (own && picking && selectedSlot >= 0) WeaponPicker(inner,h); else Sockets(inner,h,own);
@@ -37,7 +37,7 @@ namespace ContainerDefense
             var title = Cut.Top(ref r,44,8);
             HudTheme.Text(Cut.Left(ref title,190),"HOUSE " + (h.HouseId + 1).ToString("00"),HudTheme.CardTitle,HudTheme.Ink,true);
             bool mine = viewed.Id == 0 && !m.Players[0].Eliminated;
-            string tag = !own && mine ? "Match over" : own ? (viewed.Sleeping ? "+" + m.Income(h.HouseId).ToString("0.#") + " gold/s" : "Awake") : viewed.Eliminated ? "Out" : m.Players[0].Eliminated ? "Spectating " + viewed.Name : viewed.Name + " · read only";
+            string tag = !own && mine ? (m.Finished ? "Match over" : "Full map") : own ? (viewed.Sleeping ? "+" + m.Income(h.HouseId).ToString("0.#") + " gold/s" : "Awake") : viewed.Eliminated ? "Out" : m.Players[0].Eliminated ? "Spectating " + viewed.Name : viewed.Name + " · read only";
             HudTheme.Text(title,tag,HudTheme.Label,own && viewed.Sleeping ? HudTheme.Good : HudTheme.Muted,true,TextAnchor.MiddleRight);
             var hp = Cut.Top(ref r,32,16);
             HudIcons.Draw(Cut.Left(ref hp,32,8),"icon_heart");

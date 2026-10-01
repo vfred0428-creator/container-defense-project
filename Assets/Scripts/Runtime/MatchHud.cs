@@ -32,7 +32,7 @@ namespace ContainerDefense
             }
             var layout = PlanMatch();
             session.Arena.DrawLabels(); HouseInterior();
-            MapControls(layout); TopBar(layout); LeftColumn(layout); MiniMap(layout.MiniMap); HouseBoard(layout.Board); Toasts(layout.Toasts);
+            MapControls(layout); FullMapOverlay(layout); ThreatEdge(); TopBar(layout); LeftColumn(layout); MiniMap(layout.MiniMap); HouseBoard(layout.Board); Toasts(layout.Toasts);
             if (session.Paused) PauseScreen();
             else if (session.Match.Finished) Results();
         }
@@ -57,8 +57,8 @@ namespace ContainerDefense
             if (l.Board.width > 1872) l.Board = new Rect(l.Board.center.x - 936,l.Board.y,1872,l.Board.height);
             l.Toasts = Cut.Bottom(ref area,120,0); l.Toasts = Cut.Center(l.Toasts,Mathf.Min(880,l.Toasts.width),120);
             l.MiniMap = new Rect(area.xMax - 300,area.y,300,196);
-            float leftRows = session.Scouting || session.Match.Players[0].Eliminated ? 3 : CanOpenRoom ? 2 : 1;
-            l.Left = new Rect(area.x,area.y,232,leftRows * Touch + (leftRows - 1) * G);
+            var view = session.View; float leftRows = (view.HomeUnderThreat ? 1 : 0) + (view.Mode == ViewMode.FullMap ? 1 : view.Mode == ViewMode.Neighborhood ? 0 : view.ViewingOwnBase ? 1 + (CanOpenRoom ? 1 : 0) : 1 + (session.Match.Players[0].Eliminated || view.HomeUnderThreat ? 0 : 1));
+            l.Left = new Rect(area.x,area.y,232,Mathf.Max(0,leftRows * Touch + (leftRows - 1) * G));
             // Publish reserved space so the camera and world labels stay clear of the HUD.
             HudLayout.Clear();
             HudLayout.ReservedTop = (l.Strip.yMax + G) / height;
@@ -144,30 +144,60 @@ namespace ContainerDefense
                 return "Route " + string.Join(" > ",System.Array.ConvertAll(m.Boss.RouteHouses,id => (id + 1).ToString("00"))) + "  ·  " + Mathf.CeilToInt(m.Boss.TelegraphRemaining) + "s";
             return m.LivingHouses() + " houses standing";
         }
+        // Left column, by view: your base (full map, room), someone else's base (back, prev/next),
+        // the full map (close), plus a GO HOME shortcut whenever the boss lines up your house.
         private void LeftColumn(MatchLayout l)
         {
-            var m = session.Match; bool finished = m.Finished || session.Paused;
+            var m = session.Match; var view = session.View; bool finished = m.Finished || session.Paused;
             var area = l.Left;
-            if (HudTheme.Button(Cut.Top(ref area,Touch,G),session.Overview ? "FOCUS HOUSE" : "VIEW MAP",ButtonKind.Secondary,!finished && m.Players[session.ViewedPlayer].HouseId >= 0)) session.Overview = !session.Overview;
-            if (!session.Scouting && !m.Players[0].Eliminated) {
+            if (view.HomeUnderThreat && HudTheme.Button(Cut.Top(ref area,Touch,G),"GO HOME",ButtonKind.Danger,!finished)) { session.ReturnToOwnHouse(); ShowBuildBoard(false); }
+            if (view.Mode == ViewMode.FullMap) {
+                if (HudTheme.Button(Cut.Top(ref area,Touch,G),"CLOSE MAP",ButtonKind.Secondary,!finished)) session.CloseFullMap();
+                return;
+            }
+            if (view.Mode == ViewMode.Neighborhood) return;
+            if (view.ViewingOwnBase) {
+                if (HudTheme.Button(Cut.Top(ref area,Touch,G),"FULL MAP",ButtonKind.Secondary,!finished)) session.OpenFullMap();
                 if (CanOpenRoom && HudTheme.Button(Cut.Top(ref area,Touch,G),RoomOpen ? "VIEW YARD" : "MY ROOM",ButtonKind.Secondary,!finished)) RoomOpen = !RoomOpen;
                 return;
             }
-            if (!m.Players[0].Eliminated) {
-                if (HudTheme.Button(Cut.Top(ref area,Touch,G),"MY HOUSE",ButtonKind.Primary,!finished)) { session.ReturnToOwnHouse(); ShowBuildBoard(false); }
+            if (!m.Players[0].Eliminated && !view.HomeUnderThreat) {
+                if (HudTheme.Button(Cut.Top(ref area,Touch,G),"MY BASE",ButtonKind.Primary,!finished)) { session.ReturnToOwnHouse(); ShowBuildBoard(false); }
             }
-            else Cut.Top(ref area,Touch,G);
             var arrows = Cut.Row(Cut.Top(ref area,Touch),2,G);
-            if (HudTheme.Button(new Rect(arrows[0].x,arrows[0].y,Touch,Touch),"<",ButtonKind.Secondary,!finished,false,HudTheme.Body)) Step(-1);
-            if (HudTheme.Button(new Rect(arrows[1].xMax - Touch,arrows[1].y,Touch,Touch),">",ButtonKind.Secondary,!finished,false,HudTheme.Body)) Step(1);
+            if (HudTheme.Button(new Rect(arrows[0].x,arrows[0].y,Touch,Touch),"<",ButtonKind.Secondary,!finished,false,HudTheme.Body)) view.Spectate(-1);
+            if (HudTheme.Button(new Rect(arrows[1].xMax - Touch,arrows[1].y,Touch,Touch),">",ButtonKind.Secondary,!finished,false,HudTheme.Body)) view.Spectate(1);
         }
-        private void Step(int direction)
+        // Full-map view: owner portraits and HP over every house; tapping a house scouts it.
+        private void FullMapOverlay(MatchLayout l)
         {
-            var order = HouseOrder(); int index = order.FindIndex(p => p.Id == session.ViewedPlayer);
-            for (int i = 1; i <= 6; i++) {
-                var next = order[((index + direction * i) % 6 + 6) % 6];
-                if (!session.Match.Players[0].Eliminated || !next.Eliminated) { session.Scout(next.Id); return; }
+            var m = session.Match; if (session.View.Mode != ViewMode.FullMap || session.Paused) return;
+            foreach (var h in m.Houses) {
+                var screen = session.Arena.HouseScreenRect(h.Id);
+                var r = new Rect(screen.x / scale,screen.y / scale,screen.width / scale,screen.height / scale);
+                if (r.Overlaps(l.Board) || r.Overlaps(l.Strip) || r.Overlaps(l.MiniMap) || r.Overlaps(l.Left) || r.Overlaps(l.Boss)) continue;
+                if (h.OwnerId >= 0) {
+                    var owner = m.Players[h.OwnerId]; float size = Mathf.Clamp(r.height * .45f,48,88);
+                    var face = new Rect(r.center.x - size / 2,r.y - size * .35f,size,size);
+                    HudTheme.Fill(face,HudTheme.Hex(0x1B2238,.92f),size / 2);
+                    var old = GUI.color; if (!h.Occupied) GUI.color = new Color(.45f,.45f,.5f,1);
+                    Portrait(Cut.Inset(face,4),owner.Id == 0 ? session.Inventory.Equipped(owner.Character.Id) : session.Collections.DefaultSkin(owner.Character.Id),true);
+                    GUI.color = old;
+                    if (h.Id == m.Boss.TargetHouseId) HudTheme.Ring(face);
+                }
+                // Tap the front of the container: house art overlaps the row behind it, the fronts never do.
+                var tap = new Rect(r.x + r.width * .12f,r.y + r.height * .45f,r.width * .76f,r.height * .5f);
+                bool inside = tap.xMin >= safe.xMin && tap.xMax <= safe.xMax && tap.yMin >= safe.yMin && tap.yMax <= safe.yMax;
+                if (inside && tap.width >= Touch && Hit(tap,"Map house " + (h.Id + 1))) session.ViewHouse(h.Id);
             }
+        }
+        // Red screen edge while the boss lines up your house and you are looking elsewhere.
+        private void ThreatEdge()
+        {
+            if (!session.View.HomeUnderThreat || session.Match.Finished) return;
+            float pulse = .35f + Mathf.Sin(Time.unscaledTime * 6) * .15f, e = 18; var c = HudTheme.Hex(0xFF3B4A,pulse);
+            HudTheme.Fill(new Rect(0,0,width,e),c); HudTheme.Fill(new Rect(0,height - e,width,e),c);
+            HudTheme.Fill(new Rect(0,0,e,height),c); HudTheme.Fill(new Rect(width - e,0,e,height),c);
         }
         private void MiniMap(Rect r)
         {
@@ -197,12 +227,14 @@ namespace ContainerDefense
             }
             var b = arena.MapFraction(m.Boss.Position);
             if (m.Boss.Phase != BossPhase.Dead) HudTheme.Fill(new Rect(inner.x + b.x * inner.width - 8,inner.y + b.y * inner.height - 8,16,16),HudTheme.Bad,8);
+            // The whole minimap opens the full-map view.
+            if (!session.Paused && !m.Finished && Hit(r,"Minimap")) { if (session.View.Mode == ViewMode.FullMap) session.CloseFullMap(); else session.OpenFullMap(); }
         }
         // Free houses on the map are tap targets while claiming.
         private void MapControls(MatchLayout l)
         {
             var m = session.Match; var p = m.Players[0];
-            if (p.HouseId >= 0 || p.Eliminated || session.Scouting || m.Phase != MatchPhase.Preparation || session.Paused) return;
+            if (p.HouseId >= 0 || p.Eliminated || session.View.Mode != ViewMode.Neighborhood || m.Phase != MatchPhase.Preparation || session.Paused) return;
             foreach (var h in m.Houses) {
                 if (h.OwnerId >= 0) continue;
                 Vector2 point = session.Arena.ScreenPoint(h.Center) / scale;
@@ -215,8 +247,12 @@ namespace ContainerDefense
         private void Toasts(Rect slot)
         {
             var lines = new List<KeyValuePair<string,Color>>();
-            if (RouteWarning()) lines.Add(new KeyValuePair<string,Color>("Your house is on the boss route",HudTheme.Bad));
-            if (!string.IsNullOrEmpty(session.CurrentNotice) && !session.Match.Finished) lines.Add(new KeyValuePair<string,Color>(session.CurrentNotice,HudTheme.Gold));
+            var view = session.View;
+            if (view.Mode == ViewMode.FullMap) lines.Add(new KeyValuePair<string,Color>("Full map  ·  tap a house to view that base",HudTheme.Ink));
+            else if (view.ViewingOther) lines.Add(new KeyValuePair<string,Color>((view.Spectating ? "Spectating " : "Viewing ") + session.Match.Players[view.ViewedPlayer].Name + "'s base  ·  read only",HudTheme.Ink));
+            if (view.HomeUnderThreat) lines.Add(new KeyValuePair<string,Color>("The boss is heading for your house!",HudTheme.Bad));
+            else if (RouteWarning()) lines.Add(new KeyValuePair<string,Color>("Your house is on the boss route",HudTheme.Bad));
+            if (lines.Count < 2 && !string.IsNullOrEmpty(session.CurrentNotice) && !session.Match.Finished) lines.Add(new KeyValuePair<string,Color>(session.CurrentNotice,HudTheme.Gold));
             float y = slot.yMax;
             for (int i = lines.Count - 1; i >= 0 && i >= lines.Count - 2; i--) {
                 var size = HudTheme.TextStyle(HudTheme.Label,true,TextAnchor.MiddleCenter,false).CalcSize(new GUIContent(lines[i].Key));

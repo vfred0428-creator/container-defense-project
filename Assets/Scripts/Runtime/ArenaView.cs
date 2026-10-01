@@ -218,6 +218,12 @@ namespace ContainerDefense
             var doorGlow = Tinted("Door glow",soft,HudTheme.Hex(0xFFB65C,.28f),-91); scenery.Add(doorGlow.gameObject);
             doorGlow.transform.position = new Vector3(r.x + r.width * HousePivot.x,r.y + r.height * .12f,0); doorGlow.transform.localScale = new Vector3(3.4f,1.6f,1);
         }
+        // A house's art bounds on screen, in GUI pixels.
+        public Rect HouseScreenRect(int house)
+        {
+            var r = houseRects[house]; var a = ScreenPoint(new Vector3(r.xMin,r.yMax,0)); var b = ScreenPoint(new Vector3(r.xMax,r.yMin,0));
+            return Rect.MinMaxRect(a.x,a.y,b.x,b.y);
+        }
         // A point on a house's art, given in normalised coordinates from its top-left corner.
         public Vector3 HousePoint(int house,Vector2 fromTopLeft)
         { var r = houseRects[house]; return new Vector3(r.x + r.width * fromTopLeft.x,r.yMax - r.height * fromTopLeft.y,0); }
