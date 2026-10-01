@@ -14,6 +14,8 @@ public static class PlaytestSweep
     public static int Main(string[] args)
     {
         int seeds = args.Length > 0 ? int.Parse(args[0]) : 70; string output = args.Length > 1 ? args[1] : "Playtest";
+        // Optional third argument: boss health override, for tuning match length without editing MatchRules.
+        float bossHealth = args.Length > 2 ? float.Parse(args[2],System.Globalization.CultureInfo.InvariantCulture) : new MatchRules().BossHealth;
         Directory.CreateDirectory(output);
         var rows = new List<string> { "seed,winner_reason,length_s,combat_s,human_character,placements(character:place),route_kinds,exception" };
         var placeSum = new Dictionary<CharacterId,List<int>>(); var wins = new Dictionary<CharacterId,int>(); var lengths = new List<float>();
@@ -24,7 +26,7 @@ public static class PlaytestSweep
             for (int i = 0; i < 6; i++) roster[i] = catalog[(seed + i) % 7];
             string error = ""; MatchSimulation m = null; var kinds = new HashSet<BossRouteKind>();
             try {
-                m = new MatchSimulation(new MatchRules(),seed,roster);
+                m = new MatchSimulation(new MatchRules { BossHealth = bossHealth },seed,roster);
                 var bots = new LocalBotController(m); var me = m.CommandsFor(0); int target = (seed * 5) % 12; float think = 0;
                 m.Changed += e => { if (e.Kind == MatchEventKind.RoutePlanned) kinds.Add(m.Boss.RouteKind); };
                 for (int i = 0; i < MaxSeconds / Step && !m.Finished; i++) {
@@ -62,9 +64,9 @@ public static class PlaytestSweep
         }
         File.WriteAllLines(Path.Combine(output,"matches.csv"),rows);
         var summary = new List<string> {
-            "Playtest sweep: " + seeds + " seeds, default MatchRules, five LocalBotController bots plus a simple scripted human slot.",
+            "Playtest sweep: " + seeds + " seeds, default MatchRules with boss health " + bossHealth + ", five LocalBotController bots plus a simple scripted human slot.",
             "Crashes: " + crashes + "   Stuck (not finished within " + MaxSeconds / 60 + " min): " + stuck,
-            "Match length (s): min " + (lengths.Count > 0 ? lengths.Min() : 0).ToString("0") + "  median " + Median(lengths).ToString("0") + "  max " + (lengths.Count > 0 ? lengths.Max() : 0).ToString("0") + "  (target about 510 s)",
+            "Match length (s): min " + (lengths.Count > 0 ? lengths.Min() : 0).ToString("0") + "  median " + Median(lengths).ToString("0") + "  max " + (lengths.Count > 0 ? lengths.Max() : 0).ToString("0") + "  (target about 300 s)",
             "End reasons: " + string.Join(", ",reasons.Select(kv => kv.Key + " " + kv.Value)),
             "Route kinds seen (matches using each): " + string.Join(", ",routeKinds.OrderBy(kv => kv.Key).Select(kv => kv.Key + " " + kv.Value)),
             "By character: matches, average placement (1 = best), first places"

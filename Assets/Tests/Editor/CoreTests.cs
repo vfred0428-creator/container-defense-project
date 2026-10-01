@@ -110,7 +110,7 @@ public static class CoreTests
             var r = Rules(); r.PreparationSeconds = 0.1f; r.StartingGold = 1000;
             var m = new MatchSimulation(r); Claim(m, 0, 0); True(m.TryPlaceWeapon(0,0,0,WeaponKind.Gatling));
             float before = m.Damage(0); True(m.TryUpgradeWeapon(0,0,0)); True(m.Damage(0) > before);
-            Advance(m,40); True(m.Players[0].DamageDealt > 0); Near(6500 - m.Players[0].DamageDealt,m.Boss.Health);
+            Advance(m,40); True(m.Players[0].DamageDealt > 0); True(Math.Abs(new MatchRules().BossHealth - m.Players[0].DamageDealt - m.Boss.Health) < 1); // float health at boss scale
         });
         Check("Invalid inputs do not poison the simulation", () => {
             var m = New(); var p = m.Players[0].Position;

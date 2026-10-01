@@ -9,7 +9,7 @@ namespace ContainerDefense.Domain
         public float MoveSpeed = 5;
         public float ClaimRadius = 1.65f;
         public float StartingGold = 65;
-        public float BossHealth = 6500;
+        public float BossHealth = 77500;
         public float BossDamage = 32;
         public float BossAttackInterval = 1.7f;
         public float BossMoveSpeed = 3.2f;
