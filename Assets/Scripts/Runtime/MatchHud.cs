@@ -56,7 +56,7 @@ namespace ContainerDefense
             l.Board = Cut.Bottom(ref area,260,G);
             if (l.Board.width > 1872) l.Board = new Rect(l.Board.center.x - 936,l.Board.y,1872,l.Board.height);
             l.Toasts = Cut.Bottom(ref area,120,0); l.Toasts = Cut.Center(l.Toasts,Mathf.Min(880,l.Toasts.width),120);
-            l.MiniMap = new Rect(area.xMax - 300,area.y,300,196);
+            l.MiniMap = new Rect(area.xMax - 264,area.y,264,264);
             var view = session.View; float leftRows = (view.HomeUnderThreat ? 1 : 0) + (view.Mode == ViewMode.FullMap ? 1 : view.Mode == ViewMode.Neighborhood ? 0 : view.ViewingOwnBase ? 1 + (CanOpenRoom ? 1 : 0) : 1 + (session.Match.Players[0].Eliminated || view.HomeUnderThreat ? 0 : 1));
             l.Left = new Rect(area.x,area.y,232,Mathf.Max(0,leftRows * Touch + (leftRows - 1) * G));
             // Publish reserved space so the camera and world labels stay clear of the HUD.
@@ -203,8 +203,11 @@ namespace ContainerDefense
         }
         private void MiniMap(Rect r)
         {
-            var m = session.Match; HudTheme.Panel(r);
-            var inner = Cut.Inset(r,20);
+            // Round minimap as in the mocks: rim, navy disc, houses laid out inside the inscribed square.
+            var m = session.Match;
+            HudTheme.Fill(new Rect(r.x - 3,r.y - 3,r.width + 6,r.height + 6),HudTheme.Hex(0xE8ECF6,.9f),r.width / 2 + 3);
+            HudTheme.Fill(r,HudTheme.Hex(0x1B2238,.95f),r.width / 2);
+            var inner = Cut.Center(r,180,180);
             const float cellW = 52, cellH = 36;
             var arena = session.Arena;
             if (m.Boss.Phase == BossPhase.Telegraphing || m.Boss.Phase == BossPhase.Travelling) {

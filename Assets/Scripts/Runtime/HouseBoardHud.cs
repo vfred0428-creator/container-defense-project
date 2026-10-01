@@ -34,12 +34,14 @@ namespace ContainerDefense
         private void HouseSummary(Rect r,HouseScout h,PlayerState viewed,bool own)
         {
             var m = session.Match;
-            var title = Cut.Top(ref r,44,8);
-            HudTheme.Text(Cut.Left(ref title,190),"HOUSE " + (h.HouseId + 1).ToString("00"),HudTheme.CardTitle,HudTheme.Ink,true);
+            // House thumbnail and big number, as in the mocks.
+            var title = Cut.Top(ref r,76,8);
+            var thumb = Cut.Left(ref title,112,12); HudTheme.Card(thumb); session.Arena.DrawHouseThumb(Cut.Inset(thumb,4),h.HouseId);
+            HudTheme.Text(Cut.Top(ref title,46),(h.HouseId + 1).ToString("00"),HudTheme.Title,HudTheme.Ink,true);
             bool mine = viewed.Id == 0 && !m.Players[0].Eliminated;
             string tag = !own && mine ? (m.Finished ? "Match over" : "Full map") : own ? (viewed.Sleeping ? "+" + m.Income(h.HouseId).ToString("0.#") + " gold/s" : "Awake") : viewed.Eliminated ? "Out" : m.Players[0].Eliminated ? "Spectating " + viewed.Name : viewed.Name + " · read only";
-            HudTheme.Text(title,tag,HudTheme.Label,own && viewed.Sleeping ? HudTheme.Good : HudTheme.Muted,true,TextAnchor.MiddleRight);
-            var hp = Cut.Top(ref r,32,16);
+            HudTheme.Text(title,tag,HudTheme.Label,own && viewed.Sleeping ? HudTheme.Good : HudTheme.Muted,true);
+            var hp = Cut.Top(ref r,28,12);
             HudIcons.Draw(Cut.Left(ref hp,32,8),"icon_heart");
             HudTheme.Bar(hp,h.MaxHealth > 0 ? h.Health / h.MaxHealth : 0,own || viewed.Id == 0 ? HudTheme.Good : HudTheme.Info,HudTheme.Number(Mathf.Ceil(h.Health)) + " / " + HudTheme.Number(h.MaxHealth));
             var buttons = Cut.Row(Cut.Top(ref r,Touch),4,G);
@@ -78,7 +80,7 @@ namespace ContainerDefense
             HudTheme.Card(card); if (selected) HudTheme.Ring(card);
             var inner = Cut.Inset(card,14);
             var actions = own && (selected || (movingSlot >= 0 && !w.Present)) ? Cut.Bottom(ref inner,Touch,8) : Rect.zero;
-            var icon = Cut.Right(ref inner,Mathf.Min(84,inner.height),8);
+            var icon = Cut.Right(ref inner,Mathf.Min(150,inner.height),8);
             if (w.Present) session.Arena.DrawWeaponIcon(Cut.Center(icon,icon.width,icon.width),w.Kind);
             var d = w.Present ? WeaponCatalog.Get(w.Kind) : null;
             HudTheme.Text(Cut.Top(ref inner,38),w.Present ? d.Name : "Empty socket",HudTheme.Body,w.Present ? HudTheme.Ink : HudTheme.Muted,true);

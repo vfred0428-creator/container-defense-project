@@ -430,6 +430,15 @@ namespace ContainerDefense
             }
             GUI.matrix = old;
         }
+        // The house's own container art as a HUD thumbnail.
+        public void DrawHouseThumb(Rect r,int house)
+        {
+            if (Event.current.type != EventType.Repaint || map == null) return;
+            var sprite = homes[house] != null ? homes[house].sprite : null; if (sprite == null) return;
+            var t = sprite.texture; var s = sprite.textureRect; float k = Mathf.Min(r.width / s.width,r.height / s.height);
+            var dst = new Rect(r.center.x - s.width * k / 2,r.center.y - s.height * k / 2,s.width * k,s.height * k);
+            GUI.DrawTextureWithTexCoords(dst,t,new Rect(s.x / t.width,s.y / t.height,s.width / t.width,s.height / t.height));
+        }
         // Draws a weapon's world sprite as a HUD icon, so cards and rooftops share one art style.
         public void DrawWeaponIcon(Rect r,WeaponKind kind)
         {
