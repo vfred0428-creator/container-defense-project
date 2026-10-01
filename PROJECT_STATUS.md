@@ -35,3 +35,15 @@ Updated 2026-10-01. Branch: claude/continue-astra (local only).
 - Current preview: TestResults/UI-Pass/preview-build/ContainerDefense.exe. Builds/Windows is unchanged. Runtime DLL SHA256: 7A555B1427E8CE471972D55AA54A351821785F3FA3722570FD910FBB2FD4E0EB.
 - Verify-Player.ps1 now detects the smoke-output marker at either UTF-16 byte alignment. It still requires smoke drivers and isolated accounts. MatchSmokeDriver now waits for an actual scouted base and sufficient purchase gold instead of assuming fixture timing.
 - Run one Unity editor/build per checkout. Keep real account files intact. Test players use isolated accounts under TestResults.
+
+## Claude, while Astra was out (2026-10-01, after b8cb807)
+- **5d9e55c** .gitignore also covers memory captures, IDE folders, Android packages, Unity licence files and env files. A history scan found no secrets, licence files or blobs over 20 MB.
+- **c31f928 Room cards:** icons; price in red while you can't afford it; QUEUED badge; hold a card 0.4 s to preview the next level. The Weapons card lists owned weapons with levels and opens the existing weapon catalog, which hands off to the yard pads. Bed extras are hand-drawn cushions now, not crops of the room art.
+- **d9b8694 / 3a66029 Launch screen** (Astra's NEXT 1):
+  - Before the title, the bundled files really load asynchronously: profile, characters, world, interface, sounds, music. The bar moves per file.
+  - A missing required file shows which one, with RETRY / QUIT. Missing sound or music offers PLAY WITHOUT IT. No download or sign-in.
+  - LaunchSequence rules have 4 tests. Dev builds accept `--launch-fail <step>` to test the error screen (TestResults/Launch/fail3).
+- **52e5c76 Character selection:** the selected card eases up and its portrait pops then bobs; hovered cards lift; locked cards shake on tap.
+- **GitHub:** private repo https://github.com/vfred0428-creator/container-defense-project. master and claude/continue-astra are pushed.
+  - `main` (GitHub's initial README merged, ours kept) still needs a push from a terminal on the PC, because the session's auto-mode check blocks my pushes. Then set main as the default branch.
+- **Checks:** 159 domain + 17 persistence. HUD audit 0 at every captured size (TestResults/Interior/final).

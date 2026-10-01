@@ -18,9 +18,12 @@
 - **2b5fefc Boss HP:** 77,500 for a ~5 min median (TestResults/Playtest/boss-hp-tuning.md, Tools/Tune-BossHealth.ps1).
 - No old camera tests asserted the old framing, so none changed.
 
-## Open
+## Open (see PROJECT_STATUS "Claude, while Astra was out")
 - Music: 5b1a497 adds a CC0 loop (MintoDog), 40% of the Music slider, ducked for warnings and jingles.
 - Real touch-device QA.
 
 ## Codex continuation — 2026-10-01
 After Claude usage stopped, Codex resumed the unfinished room runtime edits following 32c3972. See PROJECT_STATUS.md for the current concise handoff, final build and test evidence. Room station controls, queue safety, scaled transforms and modal input blocking are now integrated. The shipped DefaultMatch.asset was still at 6,500 boss HP; it now matches the committed 77,500 tuning, with a build guard. Launch/loading and further character-selection polish remain next.
+
+## Claude — 2026-10-01 afternoon
+Continued on Astra's b8cb807. Done: room card polish (c31f928), launch screen with real loading/error/retry (d9b8694, 3a66029), smoother character selection (52e5c76). GitHub remote: origin = vfred0428-creator/container-defense-project (private). Pushes from this session are blocked by the auto-mode check; push `main` and `claude/continue-astra` from a terminal. Open: real phone QA, per-character rooms.
