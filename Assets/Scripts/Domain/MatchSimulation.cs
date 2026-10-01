@@ -82,7 +82,7 @@ namespace ContainerDefense.Domain
                 return false;
             HouseState h = houses[houseId];
             if (h.OwnerId >= 0 || p.Position.Distance(h.Entry) > rules.ClaimRadius) return false;
-            h.OwnerId = playerId; p.HouseId = houseId;
+            h.OwnerId = playerId; p.HouseId = houseId; p.ClaimedAt = Elapsed;
             h.Health = h.MaxHealth = rules.DoorHealth[0] * p.Character.DoorMultiplier;
             Emit(MatchEventKind.Claimed, playerId, houseId); return true;
         }
@@ -260,14 +260,21 @@ namespace ContainerDefense.Domain
             Boss.TelegraphRemaining = 0; Boss.RecoveryRemaining = 0; Boss.RouteHouses = new int[0]; Boss.RoutePath = new Point2[0];
             Emit(MatchEventKind.Finished);
         }
-        // Standing players first, then later eliminations. Equal times (houses falling together)
-        // resolve by house number, and players who never claimed a house come last by player id.
+        // Standing players first, then later eliminations. When the boss is killed, survivors rank by
+        // damage dealt to it, then house health left, then earliest claim. Other ties (houses falling
+        // together) resolve by house number, and players who never claimed a house come last by player id.
         private void AssignPlacements()
         {
             var order = new List<PlayerState>(players);
             order.Sort((a,b) => {
                 if (a.Eliminated != b.Eliminated) return a.Eliminated ? 1 : -1;
                 if (a.Eliminated && a.EliminatedAt != b.EliminatedAt) return b.EliminatedAt.CompareTo(a.EliminatedAt);
+                if (!a.Eliminated && EndReason == MatchEndReason.BossDefeated && a.HouseId >= 0 && b.HouseId >= 0) {
+                    if (a.DamageDealt != b.DamageDealt) return b.DamageDealt.CompareTo(a.DamageDealt);
+                    float hpA = houses[a.HouseId].Health, hpB = houses[b.HouseId].Health;
+                    if (hpA != hpB) return hpB.CompareTo(hpA);
+                    if (a.ClaimedAt != b.ClaimedAt) return a.ClaimedAt.CompareTo(b.ClaimedAt);
+                }
                 int ha = a.HouseId >= 0 ? a.HouseId : houses.Length + a.Id, hb = b.HouseId >= 0 ? b.HouseId : houses.Length + b.Id;
                 return ha.CompareTo(hb);
             });

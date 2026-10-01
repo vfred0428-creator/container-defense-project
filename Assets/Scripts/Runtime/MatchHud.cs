@@ -287,13 +287,13 @@ namespace ContainerDefense
         private void Results()
         {
             Overlay(); var m = session.Match; var p = m.Players[0];
-            bool won = m.Phase == MatchPhase.Victory && !p.Eliminated, lastStanding = m.EndReason == MatchEndReason.LastStanding;
+            bool won = m.Phase == MatchPhase.Victory && !p.Eliminated && p.Placement == 1, survived = m.Phase == MatchPhase.Victory && !p.Eliminated, lastStanding = m.EndReason == MatchEndReason.LastStanding;
             var panel = Cut.Center(safe,Mathf.Min(760,safe.width - M * 2),Mathf.Min(760,safe.height - M * 2));
             HudTheme.Panel(panel); var inner = Cut.Inset(panel,40);
             string title = won ? (lastStanding ? "LAST ONE STANDING" : "STORM SURVIVED") : "PLACED #" + p.Placement;
             HudTheme.Text(Cut.Top(ref inner,68,4),title,HudTheme.Title,won ? HudTheme.Gold : HudTheme.Bad,true);
             string winner = m.WinnerId >= 0 ? m.Players[m.WinnerId].Name : "";
-            string subtitle = won ? (lastStanding ? "Every other home fell." : "Your home held on.") : lastStanding ? winner + " was the last one standing." : m.Phase == MatchPhase.Victory ? "The remaining homes defeated the storm." : "The storm claimed every home.";
+            string subtitle = won ? (lastStanding ? "Every other home fell." : "Your home held on and dealt the most damage.") : survived ? "The storm fell. Survivors rank by damage dealt to it." : lastStanding ? winner + " was the last one standing." : m.Phase == MatchPhase.Victory ? "The remaining homes defeated the storm." : "The storm claimed every home.";
             HudTheme.Text(Cut.Top(ref inner,40,G),subtitle,HudTheme.Body,HudTheme.Muted);
             var buttons = Cut.Row(Cut.Bottom(ref inner,Touch,G),2,G);
             if (HudTheme.Button(buttons[0],"PLAY AGAIN",ButtonKind.Play,true,false,HudTheme.Body)) { if (session.PracticeRanked) session.PlayRanked(); else session.Play(); }

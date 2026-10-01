@@ -43,12 +43,14 @@ namespace ContainerDefense.Domain
         public int UpgradesPurchased { get; internal set; }
         // Match time of elimination (-1 while alive) and final placement (1 = best, 0 until the match ends).
         public float EliminatedAt { get; internal set; }
+        // Match time the house was claimed (-1 if never), the last tie-break between boss-kill survivors.
+        public float ClaimedAt { get; internal set; }
         public int Placement { get; internal set; }
         internal PlayerState(int id, bool bot, float gold, CharacterDefinition character)
         {
             Id = id; IsBot = bot; Name = id == 0 ? "You" : character.Name;
             Character = new CharacterPassive(character);
-            Gold = gold; HouseId = -1; EliminatedAt = -1;
+            Gold = gold; HouseId = -1; EliminatedAt = -1; ClaimedAt = -1;
             Position = new Point2((id - 2.5f) * 0.6f, -7);
         }
     }

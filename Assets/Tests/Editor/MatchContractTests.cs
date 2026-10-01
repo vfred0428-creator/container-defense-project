@@ -292,6 +292,39 @@ public static class MatchContractTests
             True(m.Players[0].Placement == 1 && m.Players[1].Placement == 2);
             for (int p = 2; p < 6; p++) True(m.Players[p].Placement == p + 1);
         });
+        Check("A boss kill ranks survivors by damage dealt, then house health left, then earliest claim", () => {
+            int checkedMatches = 0;
+            for (int seed = 1; seed <= 12; seed++) {
+                var m = BossKillRace(seed); if (m.EndReason != MatchEndReason.BossDefeated) continue; checkedMatches++;
+                var standing = m.Players.Where(p => !p.Eliminated).OrderBy(p => p.Placement).ToArray();
+                True(standing.Length >= 2 && standing[0].Placement == 1);
+                for (int i = 1; i < standing.Length; i++) True(Before(m,standing[i - 1],standing[i]));
+                True(m.Players.Where(p => p.Eliminated).All(p => p.Placement > standing.Length));
+            }
+            True(checkedMatches > 0);
+        });
+        Check("Equal damage and house health: the earlier claim places higher", () => {
+            bool found = false;
+            for (int seed = 1; seed <= 40 && !found; seed++) {
+                var r = Rules(); r.BossHealth = 400; r.BossDamage = 1; var m = new MatchSimulation(r,seed);
+                // Players 2, 1 and 0 claim a second apart; player 3 alone builds and kills the boss.
+                int[] order = { 2,1,0,3 }, house = { 9,6,3,0 };
+                for (int k = 0; k < 4; k++) {
+                    int p = order[k];
+                    for (int i = 0; i < 1500 && m.Players[p].Position.Distance(m.Houses[house[k]].Entry) > .1f; i++) m.Navigate(p,m.Houses[house[k]].Entry,Step);
+                    True(m.TryClaim(p,house[k])); for (int i = 0; i < 30; i++) m.Tick(Step);
+                }
+                foreach (int s in new[] { 0,1,2 }) m.CommandsFor(3).Place(s,WeaponKind.Rocket);
+                for (int i = 0; i < 30 * 600 && !m.Finished; i++) m.Tick(Step);
+                if (m.EndReason != MatchEndReason.BossDefeated) continue;
+                var idle = new[] { 2,1,0 }.Select(p => m.Players[p]).Where(p => !p.Eliminated && p.DamageDealt == 0 && m.Houses[p.HouseId].Health == m.Houses[p.HouseId].MaxHealth).ToArray();
+                if (idle.Length < 2) continue;
+                found = true;
+                True(m.Players[3].Placement == 1);
+                for (int i = 1; i < idle.Length; i++) True(idle[i - 1].ClaimedAt < idle[i].ClaimedAt && idle[i - 1].Placement < idle[i].Placement);
+            }
+            True(found);
+        });
         Check("Boss death in the step the second-to-last house would fall is a boss victory", () => {
             bool found = false;
             for (int seed = 1; seed <= 400 && !found; seed++) {
@@ -311,6 +344,19 @@ public static class MatchContractTests
             True(m.CommandsFor(1).Forfeit() && m.Finished && m.WinnerId == 0);
             MatchReward reward, again; True(account.TryAward(m,ticket,out reward)); False(account.TryAward(m,ticket,out again));
             True(account.Rank.Wins == 1 && account.Rank.MatchesPlayed == 1 && account.Social.Profile.Wins == 1 && account.TotalXp == 500 + reward.Xp);
+        });
+        Check("After a boss kill only first place counts as a ranked win", () => {
+            bool sawFirst = false, sawLower = false;
+            for (int seed = 1; seed <= 12 && !(sawFirst && sawLower); seed++) {
+                var account = new AccountProgression(new AccountData(),new CharacterCatalog(CharacterCatalog.Defaults()),new ProgressionRules(),CollectionCatalog.CreateDefault());
+                long ticket = 0;
+                var m = BossKillRace(seed,started => { ticket = account.BeginMatch(started,true); });
+                if (m.EndReason != MatchEndReason.BossDefeated || m.Players[0].Eliminated) continue;
+                MatchReward reward; True(account.TryAward(m,ticket,out reward));
+                bool first = m.Players[0].Placement == 1; sawFirst |= first; sawLower |= !first;
+                True(account.Rank.MatchesPlayed == 1 && account.Rank.Wins == (first ? 1 : 0) && account.Social.Profile.Wins == (first ? 1 : 0) && account.Rank.RankPoints == (first ? 20 : 0));
+            }
+            True(sawFirst && sawLower);
         });
         return passed + " match contract scenarios passed.";
     }
@@ -409,6 +455,26 @@ public static class MatchContractTests
         float dx = b.X - a.X, dz = b.Z - a.Z, len = dx * dx + dz * dz;
         float t = len < 1e-8f ? 0 : Math.Max(0,Math.Min(1,((p.X - a.X) * dx + (p.Z - a.Z) * dz) / len));
         return p.Distance(new Point2(a.X + dx * t,a.Z + dz * t));
+    }
+    // Four houses claimed a second apart, all armed, a boss that dies before anyone falls.
+    private static MatchSimulation BossKillRace(int seed,Action<MatchSimulation> started = null)
+    {
+        var r = Rules(); r.BossHealth = 3000; r.BossDamage = 15; var m = new MatchSimulation(r,seed); if (started != null) started(m); int[] house = { 1,4,7,10 };
+        for (int p = 0; p < 4; p++) {
+            for (int i = 0; i < 1500 && m.Players[p].Position.Distance(m.Houses[house[p]].Entry) > .1f; i++) m.Navigate(p,m.Houses[house[p]].Entry,Step);
+            True(m.TryClaim(p,house[p])); for (int i = 0; i < 30; i++) m.Tick(Step);
+        }
+        for (int p = 0; p < 4; p++) m.CommandsFor(p).Place(0,(WeaponKind)((seed + p) % 4));
+        for (int i = 0; i < 30 * 900 && !m.Finished; i++) m.Tick(Step);
+        return m;
+    }
+    // Survivor order after a boss kill: more damage, then more house health, then earlier claim.
+    private static bool Before(MatchSimulation m,PlayerState a,PlayerState b)
+    {
+        if (a.DamageDealt != b.DamageDealt) return a.DamageDealt > b.DamageDealt;
+        float ha = m.Houses[a.HouseId].Health, hb = m.Houses[b.HouseId].Health;
+        if (ha != hb) return ha > hb;
+        return a.ClaimedAt <= b.ClaimedAt;
     }
     private static MatchRules Rules() { return new MatchRules { StartingGold = 10000,PreparationSeconds = 30,UpgradeSeconds = 0,BossHealth = 100000,BossEnragePerSecond = 0 }; }
     // Players 0..n-1 walk to and claim the given houses during preparation, then preparation elapses.

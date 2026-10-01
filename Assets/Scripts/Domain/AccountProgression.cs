@@ -115,8 +115,10 @@ namespace ContainerDefense.Domain
             if (match == null || !ReferenceEquals(match,activeMatch) || !match.Finished || sequence <= data.LastRewardedSequence || sequence != data.MatchesStarted) return false;
             data.LastRewardedSequence = sequence;
             data.Social.Profile.Matches = data.Social.Profile.Matches == long.MaxValue ? long.MaxValue : data.Social.Profile.Matches + 1;
-            if (match.Phase == MatchPhase.Victory && !match.Players[0].Eliminated && data.Social.Profile.Wins < long.MaxValue) data.Social.Profile.Wins++;
-            if (activeRanked) data.Rank = RankProgression.ApplyResult(data.Rank,match.Phase == MatchPhase.Victory && !match.Players[0].Eliminated);
+            // A win is first place: last one standing, or the most boss damage among survivors of a boss kill.
+            bool won = match.Phase == MatchPhase.Victory && !match.Players[0].Eliminated && match.Players[0].Placement == 1;
+            if (won && data.Social.Profile.Wins < long.MaxValue) data.Social.Profile.Wins++;
+            if (activeRanked) data.Rank = RankProgression.ApplyResult(data.Rank,won);
             int xp = rules.Reward(match), before = Level;
             data.TotalXp = Math.Min(1000000000,data.TotalXp + xp); data.Level = rules.Level(data.TotalXp);
             reward = new MatchReward { Xp = xp, PreviousLevel = before, NewLevel = Level, Unlocked = UnlockForLevel() };
