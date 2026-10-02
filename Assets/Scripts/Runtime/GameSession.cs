@@ -98,10 +98,17 @@ namespace ContainerDefense
         public void PlayRanked() { StartMatch(true); }
         private void StartMatch(bool ranked)
         {
+            LeaveUnfinishedMatch();
             ResetMatch(); PracticeRanked = ranked; matchSequence = Account.BeginMatch(Match,ranked); PersistAccount(); LastReward = null;
             Started = true;
         }
-        public void ReturnToTitle() { Started = false; ResetMatch(); }
+        public void ReturnToTitle() { LeaveUnfinishedMatch(); Started = false; ResetMatch(); }
+        // Quitting, restarting or closing the game mid-match: a Practice Ranked match is recorded as a loss.
+        private void LeaveUnfinishedMatch()
+        {
+            if (!Started || Match == null || Match.Finished || Account == null) return;
+            if (Account.AbandonMatch()) { PersistAccount(); Notify("You left a ranked match. It counts as a loss."); }
+        }
         public void TogglePause() { if (Started && !Match.Finished) { Paused = !Paused; accumulated = 0; } }
         public void Quit() { Application.Quit(); }
         public void Scout(int player)
@@ -288,7 +295,7 @@ namespace ContainerDefense
             }
         }
         private void OnApplicationPause(bool paused) { if (paused && SaveDirty && Account != null) PersistAccount(); }
-        private void OnApplicationQuit() { if (SaveDirty && Account != null) PersistAccount(); }
+        private void OnApplicationQuit() { LeaveUnfinishedMatch(); if (SaveDirty && Account != null) PersistAccount(); }
         private void OnDestroy() { if (Match != null) Match.Changed -= OnMatchEvent; }
     }
 }

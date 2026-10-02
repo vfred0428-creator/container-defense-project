@@ -16,6 +16,9 @@ namespace ContainerDefense.Domain
         public string[] UnlockedCharacters = { "milo" };
         public long MatchesStarted;
         public long LastRewardedSequence;
+        // Added without a version bump: sequence of the last Practice Ranked match started (0 = none). A ranked match
+        // that was never rewarded (quit, restart, closed game) is settled as a loss so leaving cannot dodge one.
+        public long RankedSequence;
         // Added after v4 without a version bump: older saves load with null and get defaults.
         public AudioPrefs Audio;
         // Added without a version bump: your board decorations. Null in older saves means the starter yard.
@@ -92,10 +95,12 @@ namespace ContainerDefense.Domain
                 Yard = saved.Yard == null ? YardLayout.Starter() : YardLayout.Normalize(saved.Yard)
             };
             data.LastRewardedSequence = Math.Max(0,Math.Min(data.MatchesStarted,saved.LastRewardedSequence));
+            data.RankedSequence = Math.Max(0,Math.Min(data.MatchesStarted,saved.RankedSequence));
             data.Level = rules.Level(data.TotalXp);
             foreach (string key in saved.UnlockedCharacters ?? new string[0])
             { CharacterId id; if (CharacterCatalog.TryId(key,out id)) unlocked.Add(id); }
             UnlockForLevel();
+            SettleAbandonedRanked();
             CharacterId selected;
             Selected = CharacterCatalog.TryId(saved.SelectedCharacter,out selected) && IsUnlocked(selected) ? selected : CharacterId.Milo;
         }
@@ -106,8 +111,22 @@ namespace ContainerDefense.Domain
             if (match == null || match.Finished || match.Elapsed != 0 || ReferenceEquals(match,activeMatch))
                 throw new ArgumentException("Start rewards with a new, unplayed match.");
             if (data.MatchesStarted == long.MaxValue) throw new InvalidOperationException("Match sequence exhausted.");
+            SettleAbandonedRanked();
             activeMatch = match; activeRanked = practiceRanked;
-            return ++data.MatchesStarted;
+            ++data.MatchesStarted;
+            if (practiceRanked) data.RankedSequence = data.MatchesStarted;
+            return data.MatchesStarted;
+        }
+        // Leaving a match before its result: a Practice Ranked match counts as a played loss (no XP). Returns true
+        // when a loss was recorded. Safe to call more than once and after the match was rewarded.
+        public bool AbandonMatch() { activeMatch = null; return SettleAbandonedRanked(); }
+        private bool SettleAbandonedRanked()
+        {
+            if (data.RankedSequence <= data.LastRewardedSequence) return false;
+            data.LastRewardedSequence = data.RankedSequence;
+            data.Social.Profile.Matches = data.Social.Profile.Matches == long.MaxValue ? long.MaxValue : data.Social.Profile.Matches + 1;
+            data.Rank = RankProgression.ApplyResult(data.Rank,false);
+            return true;
         }
         public bool TryAward(MatchSimulation match, long sequence, out MatchReward reward)
         {
@@ -139,7 +158,7 @@ namespace ContainerDefense.Domain
             var keys = new List<string>();
             for (int i = 0; i < 7; i++) if (IsUnlocked((CharacterId)i)) keys.Add(CharacterCatalog.Key((CharacterId)i));
             return new AccountData { TotalXp = TotalXp, Level = Level, SelectedCharacter = CharacterCatalog.Key(Selected),
-                UnlockedCharacters = keys.ToArray(), MatchesStarted = data.MatchesStarted, LastRewardedSequence = data.LastRewardedSequence,
+                UnlockedCharacters = keys.ToArray(), MatchesStarted = data.MatchesStarted, LastRewardedSequence = data.LastRewardedSequence, RankedSequence = data.RankedSequence,
                 Collection = Inventory.Snapshot(), Social = Social, Rank = Rank, Audio = Audio, Yard = Yard };
         }
         internal void AdoptSocial(AccountData saved)

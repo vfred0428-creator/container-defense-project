@@ -287,8 +287,9 @@ namespace ContainerDefense
             HudTheme.Text(Cut.Top(ref inner,64,8),"PAUSED",HudTheme.Title,HudTheme.Ink,true,TextAnchor.MiddleCenter);
             SoundSettings(ref inner);
             var buttons = Cut.Column(Cut.Bottom(ref inner,Touch * 3 + G * 2),3,G);
+            if (session.PracticeRanked) HudTheme.Text(Cut.Bottom(ref inner,40,G),"Leaving a ranked match counts as a loss.",HudTheme.Label,HudTheme.Bad,false,TextAnchor.MiddleCenter);
             if (HudTheme.Button(buttons[0],"RESUME",ButtonKind.Primary,true,false,HudTheme.Body)) session.TogglePause();
-            if (HudTheme.Button(buttons[1],"RESTART",ButtonKind.Secondary,true,false,HudTheme.Body)) session.Play();
+            if (HudTheme.Button(buttons[1],"RESTART",ButtonKind.Secondary,true,false,HudTheme.Body)) { if (session.PracticeRanked) session.PlayRanked(); else session.Play(); }
             if (HudTheme.Button(buttons[2],"QUIT TO TITLE",ButtonKind.Secondary,true,false,HudTheme.Body)) session.ReturnToTitle();
         }
         private void Results()

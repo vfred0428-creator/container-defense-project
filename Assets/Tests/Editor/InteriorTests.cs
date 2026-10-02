@@ -104,6 +104,19 @@ public static class InteriorTests
             True(HouseStations.Effect(m,4,Station.Weapons) == "0 of 3 built" && HouseStations.Cost(m,4,Station.Weapons) == 35);
             True(HouseStations.Level(m,4,Station.Bed) == 1 && HouseStations.Level(m,4,Station.Door) == 1);
         });
+        Check("Every resident has their own room colours and a keepsake matching their passive", () => {
+            var accents = new System.Collections.Generic.HashSet<int>();
+            foreach (var d in CharacterCatalog.Defaults()) {
+                var t = RoomTheme.For(d.Id);
+                True(t.Owner == d.Id && accents.Add(t.Accent) && t.Accent != t.Paper && t.Accent != t.Ink);
+                True(t.Accent >= 0 && t.Accent <= 0xFFFFFF && t.Paper >= 0 && t.Paper <= 0xFFFFFF && t.Ink >= 0 && t.Ink <= 0xFFFFFF);
+            }
+            True(RoomTheme.KeepsakeFor(PersonalPassive.GoldGeneration) == Keepsake.CoinJar && RoomTheme.KeepsakeFor(PersonalPassive.DoorHealth) == Keepsake.Shield);
+            True(RoomTheme.KeepsakeFor(PersonalPassive.WeaponDamage) == Keepsake.Target && RoomTheme.KeepsakeFor(PersonalPassive.BuildSpeed) == Keepsake.Wrench);
+            True(Enum.GetValues(typeof(Keepsake)).Length == Enum.GetValues(typeof(PersonalPassive)).Length);
+            bool rejected = false; try { RoomTheme.For((CharacterId)7); } catch (ArgumentOutOfRangeException) { rejected = true; }
+            True(rejected);
+        });
         return passed + " interior scenarios passed.";
     }
     private static MatchSimulation New(float gold,float build,float bossDamage = 32)
