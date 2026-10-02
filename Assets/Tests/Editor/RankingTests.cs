@@ -45,11 +45,31 @@ public static class RankingTests
             Assert(!a.TryAward(m,1,out reward) && a.Rank.MatchesPlayed == 1 && a.Social.Profile.Matches == 1);
             var restored = New(a.Snapshot()); Assert(!restored.TryAward(m,1,out reward) && restored.Rank.MatchesPlayed == 1);
         });
-        Check("Unfinished and stale matches cannot change rank",() => {
+        Check("Unfinished and stale matches cannot be rewarded; a replaced ranked match is one loss",() => {
             var a = New(); var m = new MatchSimulation(new MatchRules()); var seq = a.BeginMatch(m,true); MatchReward reward;
             Assert(!a.TryAward(m,seq,out reward) && a.Rank.MatchesPlayed == 0);
             var newer = new MatchSimulation(new MatchRules()); a.BeginMatch(newer,true); for (int i = 0; i < 1000 && !m.Finished; i++) m.Tick(.1f);
-            Assert(!a.TryAward(m,seq,out reward) && a.Rank.MatchesPlayed == 0);
+            Assert(!a.TryAward(m,seq,out reward) && a.Rank.MatchesPlayed == 1 && a.Rank.Wins == 0 && a.TotalXp == 0);
+        });
+        Check("Leaving a ranked match records one loss with no XP; leaving a casual one changes nothing",() => {
+            var a = New(new AccountData { Rank = new RankData { CurrentRank = RankTier.Scout,Stars = 3,RankPoints = 40 } });
+            var m = new MatchSimulation(new MatchRules()); long seq = a.BeginMatch(m,true);
+            Assert(a.AbandonMatch() && !a.AbandonMatch());
+            MatchReward reward; for (int i = 0; i < 2000 && !m.Finished; i++) m.Tick(.1f);
+            Assert(!a.TryAward(m,seq,out reward));
+            Assert(a.Rank.Stars == 2 && a.Rank.RankPoints == 35 && a.Rank.MatchesPlayed == 1 && a.Social.Profile.Matches == 1 && a.TotalXp == 0);
+            var casual = new MatchSimulation(new MatchRules()); a.BeginMatch(casual,false);
+            Assert(!a.AbandonMatch() && a.Rank.MatchesPlayed == 1 && a.Social.Profile.Matches == 1);
+            var restored = New(a.Snapshot()); Assert(restored.Rank.Stars == 2 && restored.Rank.MatchesPlayed == 1);
+        });
+        Check("A ranked match cut off by a closed or crashed game is settled as a loss on the next load, once",() => {
+            var a = New(new AccountData { Rank = new RankData { Stars = 2 } });
+            a.BeginMatch(new MatchSimulation(new MatchRules()),true); var saved = a.Snapshot();   // saved when the match began
+            var reloaded = New(saved); Assert(reloaded.Rank.Stars == 1 && reloaded.Rank.MatchesPlayed == 1 && reloaded.Social.Profile.Matches == 1);
+            var again = New(reloaded.Snapshot()); Assert(again.Rank.Stars == 1 && again.Rank.MatchesPlayed == 1);
+            var won = FinishedMatch(again,true); MatchReward reward; Assert(again.TryAward(won,again.Snapshot().MatchesStarted,out reward));
+            var later = New(again.Snapshot()); Assert(later.Rank.MatchesPlayed == 2);
+            var bogus = New(new AccountData { MatchesStarted = 3,LastRewardedSequence = 3,RankedSequence = 99 }); Assert(bogus.Rank.MatchesPlayed == 0);
         });
         Check("Actual surviving victory promotes once and persists profile wins",() => {
             var a = New(new AccountData { Rank = new RankData { Stars = 4 } });
